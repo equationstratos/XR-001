@@ -39,7 +39,8 @@ pour un déploiement en sous-répertoire.
 | Repères cotés | 6 étiquettes 2D ancrées aux pièces, elles suivent l'éclatement et l'animation |
 | Options | Internes, tube lanceur, filaire, rotation des rotors, rotation automatique |
 | Export | Capture PNG à la résolution de l'écran |
-| Raccourcis | `Espace` lecture/pause · `E` vue éclatée · `R` recadrage caméra |
+| Vue mécanisme | Isole une articulation, suit la pièce pendant le tir, repères dédiés, état du verrou en direct |
+| Raccourcis | `Espace` lecture/pause · `E` vue éclatée · `M` vue mécanisme · `R` recadrage caméra |
 
 ---
 
@@ -127,14 +128,71 @@ La rotation des rotors est affichée à 1,2 % du régime réel : à 24 000 tr/mi
 60 Hz, une pale ferait 6,7 tours par image et deviendrait illisible (aliasing
 temporel).
 
+## Mécanisme de déploiement
+
+Le dépliage n'est pas une animation posée sur un modèle figé : la chaîne
+mécanique est modélisée pièce à pièce et animée par la même variable.
+Le bouton **Vue mécanisme** (ou `M`) isole une articulation — les autres bras,
+le carénage, les cloisons et les modules sont effacés — et la caméra suit la
+pièce pendant tout le tir.
+
+### Articulation de bras (× 4)
+
+| Pièce | Définition |
+|---|---|
+| Chape | 7075, deux joues Ø 10 × 1,4, ancrée sur l'épine |
+| Axe | Ø 1,5 inox, débordant pour porter le ressort, retenu par 2 circlips |
+| Ressort de torsion | fil Ø 0,6, 6 spires, Ø moyen 5,2 ; branches radiales encastrées l'une sur la chape, l'autre sur le bras |
+| Butée | épaulement usiné dans la chape + pastille élastomère |
+| Verrou | doigt Ø 2,2 poussé par un ressort de compression, guidé par deux flasques |
+
+La spire tourne de la **moitié** de l'angle du bras — c'est la conséquence
+directe de l'encastrement de ses deux branches, et c'est ce que fait le modèle.
+En fin de course, le **talon** usiné dans le pied de bras efface le doigt, puis
+le laisse ressortir derrière lui : le repliage devient impossible (le
+déverrouillage demande un outil). Le panneau affiche l'état en direct —
+`ouvert` → `VERROUILLÉ` — et l'angle d'ouverture réel.
+
+### Dimensionnement — les chiffres sont vérifiables
+
+```
+inertie d'un bras autour de l'axe   I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
+ouverture 90° en 80 ms              α = 2θ/t²                  ≈ 490 rad/s²
+couple nécessaire                   C = I·α                    ≈ 26 mN·m
+fil à ressort Ø 0,6                 C_max = π·d³·σ/32          ≈ 25 mN·m (σ = 1200 MPa)
+énergie à encaisser en butée        E = ½·I·ω²                 ≈ 41 mJ → élastomère
+effort du bras sur le fût           F = C/L                    ≈ 0,32 N → négligeable
+```
+
+Le bras replié n'est pas à 90° : le ressort le pousse en permanence contre la
+face interne du carénage, donc il repose **ouvert de 3,3°** —
+`sin θ = (16 − 8,5 − 3)/78`. C'est la seule ouverture possible tant qu'il est
+engagé, et c'est la valeur qu'affiche le panneau en configuration stockée.
+
+### Charnières de pales
+
+Deux vis épaulées Ø 1,5 déportées de `hubR` de part et d'autre du moyeu : les
+pales s'ouvrent **en ciseaux**, chacune dans son sens, et viennent porter contre
+une butée usinée dans la platine. Aucun ressort — la force centrifuge suffit :
+
+```
+pale de 0,35 g, cg à 25 mm     F = m·ω²·r
+à  3 000 tr/min                F ≈ 0,9 N   (déjà 260× le poids de la pale)
+à 20 000 tr/min                F ≈ 38 N    (plaquage rigide contre la butée)
+```
+
+Repliées, les deux pales sont parallèles et rangées vers l'axe d'articulation :
+c'est ce qui permet au train bras + rotor de tenir dans la longueur du bras.
+
 ## Optimisations
 
 * **Rendu à la demande** — la boucle ne dessine que si la scène est marquée
   « sale », si une animation tourne ou si la caméra bouge. Au repos, le GPU est
   à 0 %.
 * **Fusion de géométrie** — chaque sous-ensemble statique (épine, carénage,
-  chapes, soute, tête, tube, cartes) est fusionné en une seule `BufferGeometry`
-  via `mergeGeometries`. ~78 draw calls et 18,6 k triangles pour l'ensemble.
+  les 4 chapes complètes, soute, tête, tube, cartes) est fusionné en une seule
+  `BufferGeometry` via `mergeGeometries`. ~90 draw calls et 25 k triangles pour
+  l'ensemble, mécanisme compris ; la vue mécanisme retombe à ~12 draw calls.
 * **Partage** — une seule géométrie de bras pour 4 instances, une seule de pale
   pour 8 ; les matériaux sont partagés dans un registre unique.
 * **Zéro téléchargement** — textures (tissage carbone, grain métal) générées sur
@@ -161,6 +219,7 @@ src/
 │   └── deployment.js      séquenceur déterministe t ∈ [0,1]
 ├── ui/
 │   ├── panel.js           câblage du panneau HTML
+│   ├── mechview.js        vue d'inspection du mécanisme (cadrage + isolement)
 │   └── labels.js          repères 2D projetés à la main
 └── main.js                composition
 ```

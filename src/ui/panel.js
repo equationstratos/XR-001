@@ -1,13 +1,14 @@
-import { SPECS } from '../config.js';
+import { SPECS, MECH_SPECS } from '../config.js';
 
 const $ = (s) => document.querySelector(s);
 
 /** Cablage du panneau HTML -> modele / viewer. Aucune dependance UI externe. */
-export function initPanel({ viewer, drone, deploy, labels }) {
+export function initPanel({ viewer, drone, deploy, labels, mech }) {
   const out = {
     phase: $('[data-out="phase"]'), explode: $('[data-out="explode"]'),
     clip: $('[data-out="clip"]'), name: $('[data-out="phaseName"]'),
     clear: $('[data-out="clear"]'),
+    arm: $('[data-out="arm"]'), lock: $('[data-out="lock"]'),
   };
   const hud = {
     fps: $('[data-hud="fps"]'), calls: $('[data-hud="calls"]'), tris: $('[data-hud="tris"]'),
@@ -15,8 +16,9 @@ export function initPanel({ viewer, drone, deploy, labels }) {
   const phase = $('#phase'), play = $('#play');
 
   // --- fiche technique ---
-  $('#specs').innerHTML = SPECS
-    .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  const fiche = (rows) => rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  $('#specs').innerHTML = fiche(SPECS);
+  $('#mech-specs').innerHTML = fiche(MECH_SPECS);
 
   const dirty = () => (viewer.dirty = true);
 
@@ -26,6 +28,9 @@ export function initPanel({ viewer, drone, deploy, labels }) {
     out.name.textContent = deploy.phaseName;
     out.clear.textContent = `${deploy.clear.toFixed(2).replace('.', ',')} L`;
     out.clear.style.color = deploy.clear >= 1 ? 'var(--acc)' : 'var(--acc2)';
+    out.arm.textContent = `${deploy.armAngle}°`;
+    out.lock.textContent = deploy.locked ? 'VERROUILLÉ' : 'ouvert';
+    out.lock.style.color = deploy.locked ? 'var(--acc)' : 'var(--acc2)';
     play.textContent = deploy.playing ? '❚❚ Pause' : '▶ Lancer la séquence';
     play.classList.toggle('primary', !deploy.playing);
   };
@@ -62,10 +67,18 @@ export function initPanel({ viewer, drone, deploy, labels }) {
     dirty();
   });
 
+  let labelsWanted = true;
+  const mechBtn = $('#mech');
+  mechBtn.addEventListener('click', () => {
+    mech.setEnabled(!mech.on, labelsWanted);
+    mechBtn.classList.toggle('on', mech.on);
+    mechBtn.textContent = mech.on ? 'Vue d\'ensemble' : 'Vue mécanisme';
+  });
+
   const bind = (id, fn) => $(id).addEventListener('change', (e) => { fn(e.target.checked); dirty(); });
   bind('#opt-internals', (v) => drone.setInternals(v));
   bind('#opt-tube', (v) => { drone.setLauncher(v); drone.setExplode(parseFloat($('#explode').value)); });
-  bind('#opt-labels', (v) => labels.setEnabled(v));
+  bind('#opt-labels', (v) => { labelsWanted = v; mech.setEnabled(mech.on, v); if (!mech.on) labels.setEnabled(v); });
   bind('#opt-wire', (v) => drone.setWireframe(v));
   bind('#opt-spin', (v) => (deploy.spin = v));
   bind('#opt-orbit', (v) => (viewer.controls.autoRotate = v));
@@ -84,7 +97,8 @@ export function initPanel({ viewer, drone, deploy, labels }) {
   addEventListener('keydown', (e) => {
     if (e.target.matches('input')) return;
     if (e.code === 'Space') { e.preventDefault(); deploy.toggle(); syncPhase(); dirty(); }
-    if (e.code === 'KeyR') viewer.resetView();
+    if (e.code === 'KeyR') { mech.setEnabled(false, labelsWanted); mechBtn.classList.remove('on'); mechBtn.textContent = 'Vue mécanisme'; viewer.resetView(); }
+    if (e.code === 'KeyM') mechBtn.click();
     if (e.code === 'KeyE') { $('#explode').value = $('#explode').value > 0 ? 0 : 1; $('#explode').dispatchEvent(new Event('input')); }
   });
 

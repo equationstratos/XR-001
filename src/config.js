@@ -89,6 +89,63 @@ export const Y = {
   noseTip: -D.bodyLen / 2 - D.bayLen - D.noseLen, // -133
 };
 
+/**
+ * MECANISME DE DEPLOIEMENT — cotes de la chaine reelle.
+ *
+ * Chaine par bras (4 exemplaires identiques) :
+ *   chape 7075 a deux joues  ->  axe Ø1,5 acier inox retenu par circlips
+ *   ressort de torsion Ø0,6 monte en porte-a-faux sur l'axe (25 mN·m)
+ *   butee usinee dans la chape + pastille elastomere (encaisse 41 mJ)
+ *   doigt de verrouillage Ø2,2 pousse par un ressort de compression :
+ *   le talon du bras l'efface en fin de course puis il ressort derriere lui,
+ *   interdisant le repliage (deverrouillage a l'outil).
+ *
+ * Dimensionnement du ressort de torsion (verifiable) :
+ *   inertie d'un bras autour de l'axe  I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
+ *   objectif d'ouverture 90° en 80 ms  ->  α = 2θ/t² ≈ 490 rad/s²
+ *   couple necessaire                  C = I·α ≈ 26 mN·m
+ *   fil a ressort Ø0,6 : C_max = π·d³·σ/32 ≈ 25 mN·m a σ = 1200 MPa  -> OK
+ *   energie a encaisser en butee       E = ½·I·ω² ≈ 41 mJ  -> pastille elastomere
+ *   effort du bras sur le fut du tube  F = C/L ≈ 0,32 N par bras -> negligeable
+ *
+ * Pales : charnieres a vis epaulee Ø1,5 deportees de hubR de part et d'autre
+ * du moyeu. Deploiement centrifuge, aucun ressort :
+ *   a 3 000 tr/min deja  F = m·ω²·r ≈ 0,9 N pour une pale de 0,35 g
+ *   a 20 000 tr/min      F ≈ 38 N  -> plaquage rigide contre la butee du moyeu.
+ */
+export const MECH = {
+  shroudRi: 16 * MM,      // face interne du carenage : butee du bras replie
+  cheekR: 5.0 * MM,       // joue de chape
+  cheekT: 1.4 * MM,
+  cheekGap: 5.2 * MM,     // entraxe interieur = largeur du pied de bras
+  pinR: 0.75 * MM,        // axe Ø1,5
+  pinLen: 15 * MM,        // deborde pour porter le ressort + circlips
+  coilX: 5.6 * MM,        // position du ressort sur l'axe
+  coilR: 2.6 * MM,        // rayon moyen d'enroulement
+  wire: 0.6 * MM,         // fil du ressort de torsion
+  coilTurns: 6,
+  coilLen: 4.5 * MM,
+  legLen: 7.5 * MM,       // branches radiales du ressort
+  latchR: 1.1 * MM,       // doigt de verrouillage Ø2,2
+  latchLen: 6.5 * MM,
+  latchTravel: 1.9 * MM,  // course d'effacement
+  latchY: -6.2 * MM,      // implantation du doigt dans la chape
+  latchZ: 2.4 * MM,
+  heelR: 4.4 * MM,        // talon usine dans le pied de bras
+  bumperR: 1.6 * MM,      // pastille elastomere de butee
+  screwR: 0.75 * MM,      // vis epaulee de charniere de pale
+};
+
+export const MECH_SPECS = [
+  ['Ressort de torsion', 'Ø 0,6 · 6 sp. · 25 mN·m'],
+  ['Ouverture d\'un bras', '90° en ≈ 80 ms'],
+  ['Énergie en butée', '41 mJ · pastille élastomère'],
+  ['Verrouillage', 'doigt Ø 2,2 à ressort, irréversible'],
+  ['Effort sur le fût', '0,32 N par bras'],
+  ['Charnière de pale', 'vis épaulée Ø 1,5 · sans ressort'],
+  ['Déploiement pales', 'centrifuge · 38 N à 20 000 tr/min'],
+];
+
 /** Vue eclatee : direction (x,y,z) + amplitude par sous-ensemble. */
 export const EXPLODE = {
   head:   [0, 1, 0, 0.075],

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { D, SEQ, LAUNCH, PHASES } from '../config.js';
+import { D, SEQ, LAUNCH, MECH, PHASES } from '../config.js';
 
 const RAD = Math.PI / 180;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -25,6 +25,15 @@ const overshoot = (x) => {
  * L'etat est entierement deterministe (aucune integration), sauf la rotation
  * des rotors et le flottement de vol qui sont integres dans le temps.
  */
+/**
+ * Angle de repos du bras replie. Le ressort le pousse en permanence : il vient
+ * donc porter sur la face interne du carenage, legerement ouvert.
+ *   sin θ_repos = (r_carenage − r_axe − r_bras) / L = (16 − 8,5 − 3) / 78
+ * soit 3,3° — c'est la seule ouverture possible tant que le bras est engage.
+ */
+const REST = Math.asin((MECH.shroudRi - D.hingeR - D.armR) / D.armLen);
+const FOLDED = Math.PI / 2 - REST;
+
 export class Deployment {
   constructor(drone) {
     this.drone = drone;
@@ -101,14 +110,28 @@ export class Deployment {
       const ta = overshoot(clamp01(c));
       if (i === 0) armT = ta;
       // butee mecanique tant que le bras est encore engage dans le tube
-      const caged = clamp01(1 - clear) * (5.5 * RAD);
-      arm.hinge.rotation.x = THREE.MathUtils.lerp(Math.PI / 2, -D.armDihedral * RAD, ta) + caged;
+      const angle = THREE.MathUtils.lerp(FOLDED, -D.armDihedral * RAD, ta);
+      arm.hinge.rotation.x = angle;
+
+      // --- mecanisme ---
+      // le ressort de torsion est encastre d'un cote sur la chape, de l'autre
+      // sur le bras : sa spire tourne donc de la moitie de l'angle d'ouverture.
+      arm.coil.rotation.x = angle / 2;
+
+      // le talon efface le doigt de verrouillage en fin de course, puis le
+      // laisse ressortir derriere lui : le repliage devient impossible.
+      const push = smooth(clamp01((ta - 0.78) / 0.14)) * (1 - smooth(clamp01((ta - 0.94) / 0.055)));
+      arm.plunger.position.y = arm.restPlungerY - push * MECH.latchTravel;
+      arm.lspring.scale.y = 1 - 0.55 * push;
+      arm.ta = ta;
+      arm.locked = ta >= 0.99;
 
       // --- 4. depliage des pales ---
       const tb = smooth(clamp01((clear - L.bladeStart - order * 0.05) / L.bladeSpan));
+      // ouverture en ciseaux : charnieres deportees de part et d'autre du
+      // moyeu, les deux pales tournent en sens opposes.
       for (let j = 0; j < arm.blades.length; j++) {
-        const base = j === 0 ? Math.PI / 2 : -Math.PI / 2;
-        arm.blades[j].rotation.y = base - (Math.PI / 2) * tb;
+        arm.blades[j].rotation.y = Math.PI / 2 + (j === 0 ? -1 : 1) * (Math.PI / 2) * tb;
       }
     }
 
@@ -131,8 +154,8 @@ export class Deployment {
     body.rotation.x = Math.cos(this._bob * 1.3) * 0.018 * hover;
 
     this.rpm = Math.round(rpmFrac * D.rpm);
-    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(
-      THREE.MathUtils.lerp(Math.PI / 2, -D.armDihedral * RAD, armT)));
+    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(drone.arms[0].hinge.rotation.x));
+    this.locked = drone.arms[0].locked;
   }
 
   get phaseName() {

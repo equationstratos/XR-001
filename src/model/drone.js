@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { D, Y, EXPLODE } from '../config.js';
+import { D, Y, MECH, EXPLODE } from '../config.js';
 import {
-  buildChassis, buildBay, buildShroud, buildHinges, buildHead, buildNose, buildArm, buildMotor,
-  buildBlade, buildHub, buildInternals, buildTube,
+  buildChassis, buildBay, buildShroud, buildClevis, buildTorsionSpring, buildLatch,
+  buildHead, buildNose, buildArm, buildMotor, buildBlade, buildHub, buildInternals, buildTube,
 } from './parts.js';
 
 const RAD = Math.PI / 180;
@@ -40,10 +40,15 @@ export class Drone {
 
   _buildBody() {
     const M = this.M;
-    this.chassis = this._mesh(buildChassis(D), M.carbon);
+    const ch = buildChassis(D);
+    this.chassis = this._mesh(ch.spine, M.carbon);
     this.chassis.name = 'chassis';
-    this._mesh(buildShroud(D), M.carbon).name = 'shroud';
-    this._mesh(buildHinges(D), M.alu).name = 'hinges';
+    this.bulkheads = this._mesh(ch.bulkheads, M.carbon);
+    this.bulkheads.name = 'bulkheads';
+    this.shroud = this._mesh(buildShroud(D), M.carbon);
+    this.shroud.name = 'shroud';
+    this.clevis = this._mesh(buildClevis(D), M.alu);
+    this.clevis.name = 'clevis';
 
     // --- tete optronique ---
     this.head = new THREE.Group();
@@ -88,7 +93,9 @@ export class Drone {
     const { bell, stator } = buildMotor(D);
     const hubGeo = buildHub(D);
     const bladeGeo = buildBlade(D);
-    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo);
+    const coilGeo = buildTorsionSpring();
+    const latch = buildLatch();
+    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, coilGeo, latch.plunger, latch.spring);
 
     for (let i = 0; i < D.armCount; i++) {
       const az = (D.armSweep + i * (360 / D.armCount)) * RAD;
@@ -103,6 +110,35 @@ export class Drone {
       yaw.add(hinge);
 
       this._mesh(armGeo, M.carbon, hinge);
+
+      // --- mecanisme d'articulation ---------------------------------
+      // ressort de torsion : la spire tourne de la moitie de l'angle du bras
+      const coil = new THREE.Group();
+      coil.position.z = D.hingeR;
+      yaw.add(coil);
+      this._mesh(coilGeo, M.spring, coil, false);
+
+      // doigt de verrouillage : efface par le talon puis ressort derriere lui
+      const plunger = new THREE.Group();
+      plunger.position.set(0, MECH.latchY - 2.65 * 0.001, D.hingeR + MECH.latchZ);
+      yaw.add(plunger);
+      this._mesh(latch.plunger, M.alu, plunger, false);
+
+      // ressort de compression du verrou : comprime depuis le haut
+      const lspring = new THREE.Group();
+      lspring.position.set(0, -13.6 * 0.001, D.hingeR + MECH.latchZ);
+      yaw.add(lspring);
+      const sm = this._mesh(latch.spring, M.spring, lspring, false);
+      sm.position.y = 1.7 * 0.001;
+
+      // pastille elastomere de butee
+      const bump = this._mesh(
+        new THREE.CylinderGeometry(MECH.bumperR, MECH.bumperR, 1 * 0.001, 12),
+        M.rubber, yaw, false,
+      );
+      bump.position.set(0, MECH.cheekR * 0.62 + 1.6 * 0.001, D.hingeR + 1.6 * 0.001);
+
+      // --- propulsion ------------------------------------------------
       const motor = new THREE.Group();
       motor.position.set(0, D.motorOff, D.armLen);
       hinge.add(motor);
@@ -114,21 +150,38 @@ export class Drone {
       motor.add(hub);
       this._mesh(hubGeo, M.aluDark, hub, false);
 
+      // pales sur charnieres deportees de +/- hubR : elles s'ouvrent en ciseaux
       const blades = [];
       for (let b = 0; b < D.bladeCount; b++) {
         const pivot = new THREE.Group();
-        pivot.position.y = (b === 0 ? 1 : -1) * 0.7 * 0.001;   // pales superposees une fois repliees
+        pivot.position.set((b === 0 ? 1 : -1) * D.hubR, 2.2 * 0.001, 0);
         hub.add(pivot);
         this._mesh(bladeGeo, M.blade, pivot, false);
         blades.push(pivot);
       }
-      this.arms.push({ yaw, hinge, motor, hub, blades, az, restZ: hinge.position.z });
+      this.arms.push({
+        yaw, hinge, motor, hub, blades, coil, plunger, lspring, az,
+        restZ: hinge.position.z,
+        restPlungerY: plunger.position.y,
+        ta: 0, locked: false,
+      });
     }
     this.labels.push({
       text: 'Bras repliable + rotor',
       obj: this.arms[0].motor,
       pos: new THREE.Vector3(0, 0.022, 0),
     });
+
+    // reperes du mecanisme (vue d'inspection)
+    const a0 = this.arms[0];
+    this.mechLabels = [
+      { text: 'Chape 7075 + axe Ø1,5', obj: a0.yaw, pos: new THREE.Vector3(-0.013, -0.002, D.hingeR - 0.004) },
+      { text: 'Ressort de torsion Ø0,6 · 25 mN·m', obj: a0.yaw, pos: new THREE.Vector3(MECH.coilX + 0.002, 0.006, D.hingeR) },
+      { text: 'Butée + pastille élastomère', obj: a0.yaw, pos: new THREE.Vector3(0, 0.012, D.hingeR + 0.002) },
+      { text: 'Doigt de verrouillage Ø2,2', obj: a0.yaw, pos: new THREE.Vector3(0, -0.017, D.hingeR + 0.005) },
+      { text: 'Talon du bras', obj: a0.hinge, pos: new THREE.Vector3(0, -0.009, 0.002) },
+      { text: 'Charnière de pale · vis épaulée Ø1,5', obj: a0.hub, pos: new THREE.Vector3(0, 0.008, -0.004) },
+    ];
   }
 
   _buildLauncher() {
