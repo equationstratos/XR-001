@@ -1,0 +1,15 @@
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  base: './',
+  build: {
+    target: 'es2020',
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        // three est la seule grosse dependance : on l'isole pour un cache long terme.
+        manualChunks: { three: ['three'] },
+      },
+    },
+  },
+});

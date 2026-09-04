@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>XR-001 · Visualiseur 3D — micro-drone repliable 40 mm</title>
+<meta name="description" content="Visualiseur 3D temps reel d'un micro-drone repliable tube-launched de calibre 40 mm." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0e11'/%3E%3Cpath d='M16 5v22M6 11h20' stroke='%237fd1a8' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <header id="topbar">
+      <div class="brand">
+        <span class="tag">XR-001</span>
+        <h1>Micro-drone repliable · calibre 40 mm</h1>
+      </div>
+      <div id="hud" class="hud">
+        <span data-hud="fps">-- fps</span>
+        <span data-hud="calls">-- draw</span>
+        <span data-hud="tris">-- tri</span>
+      </div>
+      <button id="panel-toggle" class="icon-btn" aria-label="Afficher/masquer le panneau">☰</button>
+    </header>
+
+    <aside id="panel">
+      <section class="grp">
+        <h2>Séquence de déploiement</h2>
+        <div class="row btns">
+          <button data-preset="0" class="chip">Tube</button>
+          <button data-preset="0.35" class="chip">Éjection</button>
+          <button data-preset="0.7" class="chip">Bras</button>
+          <button data-preset="1" class="chip">Vol</button>
+        </div>
+        <label class="row">
+          <span>Phase <b data-out="phase">0 %</b></span>
+          <input id="phase" type="range" min="0" max="1" step="0.001" value="0" />
+        </label>
+        <div class="row btns">
+          <button id="play" class="chip primary">▶ Lancer la séquence</button>
+          <label class="chip toggle"><input id="loop" type="checkbox" /> Boucle</label>
+        </div>
+        <p class="phase-name" data-out="phaseName">Configuration stockée (tube)</p>
+      </section>
+
+      <section class="grp">
+        <h2>Analyse</h2>
+        <label class="row">
+          <span>Vue éclatée <b data-out="explode">0 %</b></span>
+          <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
+        </label>
+        <label class="row">
+          <span>Coupe longitudinale <b data-out="clip">off</b></span>
+          <input id="clip" type="range" min="-1" max="1" step="0.01" value="1" />
+        </label>
+        <div class="row checks">
+          <label><input id="opt-internals" type="checkbox" checked /> Internes</label>
+          <label><input id="opt-tube" type="checkbox" checked /> Lanceur</label>
+          <label><input id="opt-labels" type="checkbox" checked /> Repères</label>
+          <label><input id="opt-wire" type="checkbox" /> Filaire</label>
+          <label><input id="opt-spin" type="checkbox" checked /> Rotors</label>
+          <label><input id="opt-orbit" type="checkbox" /> Rotation auto</label>
+        </div>
+      </section>
+
+      <section class="grp">
+        <h2>Caractéristiques</h2>
+        <dl id="specs"></dl>
+      </section>
+
+      <section class="grp">
+        <div class="row btns">
+          <button id="shot" class="chip">⤓ Capture PNG</button>
+          <button id="reset" class="chip">⟲ Vue</button>
+        </div>
+        <p class="note">Modèle paramétrique à titre d'étude mécanique : structure, cinématique de dépliage et implantation. Le module avant est une enveloppe de charge utile générique (inerte).</p>
+      </section>
+    </aside>
+
+    <div id="loading"><div class="spin"></div></div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
