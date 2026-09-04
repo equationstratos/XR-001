@@ -7,6 +7,7 @@ export function initPanel({ viewer, drone, deploy, labels }) {
   const out = {
     phase: $('[data-out="phase"]'), explode: $('[data-out="explode"]'),
     clip: $('[data-out="clip"]'), name: $('[data-out="phaseName"]'),
+    clear: $('[data-out="clear"]'),
   };
   const hud = {
     fps: $('[data-hud="fps"]'), calls: $('[data-hud="calls"]'), tris: $('[data-hud="tris"]'),
@@ -23,6 +24,8 @@ export function initPanel({ viewer, drone, deploy, labels }) {
     phase.value = deploy.t;
     out.phase.textContent = `${Math.round(deploy.t * 100)} %`;
     out.name.textContent = deploy.phaseName;
+    out.clear.textContent = `${deploy.clear.toFixed(2).replace('.', ',')} L`;
+    out.clear.style.color = deploy.clear >= 1 ? 'var(--acc)' : 'var(--acc2)';
     play.textContent = deploy.playing ? '❚❚ Pause' : '▶ Lancer la séquence';
     play.classList.toggle('primary', !deploy.playing);
   };

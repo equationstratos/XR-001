@@ -100,22 +100,45 @@ export const EXPLODE = {
   tube:   [1, -0.35, 0, 0.26],
 };
 
-/** Sequence : bornes temporelles normalisees (0 -> 1) de chaque phase. */
+/**
+ * Sequence. Seuls le lancement et la montee en regime sont pilotes par le
+ * temps : le deploiement des bras et des pales est asservi au DEGAGEMENT DE
+ * BOUCHE (voir LAUNCH), car un bras ne peut pas s'ouvrir tant qu'il est
+ * dans le tube.
+ */
 export const SEQ = {
-  eject:  [0.00, 0.26],
-  arms:   [0.24, 0.58],
-  blades: [0.46, 0.76],
-  spin:   [0.62, 1.00],
+  eject: [0.00, 0.62],
+  spin:  [0.58, 0.90],
+};
+
+/**
+ * Lancement. Le degagement `clear` est exprime en LONGUEURS DE BRAS :
+ *   clear = (y_axe_articulation - y_bouche) / longueur_de_bras
+ * clear < 1  -> une partie du bras est encore dans le tube : il ne peut
+ *               s'ouvrir que de asin((r_tube - r_axe) / L) ~ 5,5 deg.
+ * clear >= 1 -> le bras est integralement sorti, le ressort le deploie.
+ * D'ou une ouverture "claquante" a la sortie de bouche, et non progressive.
+ */
+export const LAUNCH = {
+  rise: 0.07,        // montee du projectile (m)
+  drop: 0.17,        // recul apparent du lanceur (m) ; seul le mouvement relatif compte
+  decel: 1.25,       // exposant du profil de vitesse (1 = vitesse constante)
+  armFree: 1.00,     // degagement a partir duquel le bras est libre
+  armSpan: 0.72,     // degagement consomme par l'ouverture d'un bras
+  armStagger: 0.07,  // decalage entre les deux paires opposees
+  bladeStart: 1.80,  // degagement de debut de depliage des pales
+  bladeSpan: 0.65,
+  spinAxial: 3.2,    // tours de roulis pendant la sortie de tube (stabilisation)
 };
 
 export const PHASES = [
-  [0.00, 'Configuration stockée (tube 40 mm)'],
-  [0.05, 'Éjection — sortie de tube'],
-  [0.28, 'Stabilisation — déverrouillage des bras'],
-  [0.50, 'Déploiement des bras (4 × 90°)'],
-  [0.70, 'Dépliage des pales'],
-  [0.86, 'Montée en régime rotors'],
-  [0.99, 'Configuration de vol'],
+  [0.00, 'Configuration stockée — tube 40 mm'],
+  [0.02, 'Tir — le projectile quitte le tube'],
+  [0.26, 'Sortie de bouche — libération des bras'],
+  [0.31, 'Déploiement des bras (4 × 90°)'],
+  [0.44, 'Dépliage des pales'],
+  [0.60, 'Montée en régime rotors'],
+  [0.92, 'Configuration de vol'],
 ];
 
 const mm = (v) => `${Math.round(v / MM)} mm`;

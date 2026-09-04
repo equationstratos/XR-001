@@ -33,7 +33,7 @@ pour un déploiement en sous-répertoire.
 
 | Fonction | Détail |
 |---|---|
-| Séquence de déploiement | Curseur de phase 0→100 %, lecture animée, boucle, 4 préréglages (Tube / Éjection / Bras / Vol) |
+| Séquence de tir | Curseur de phase 0→100 %, lecture animée, boucle, 4 préréglages (Tube / Tir / Sortie / Vol), indicateur de dégagement de bouche |
 | Vue éclatée | Séparation continue des sous-ensembles (tête, soute, énergie, avionique, ogive, bras, tube) |
 | Coupe longitudinale | Plan de coupe temps réel (`localClippingEnabled`), balayage de −55 à +55 mm |
 | Repères cotés | 6 étiquettes 2D ancrées aux pièces, elles suivent l'éclatement et l'animation |
@@ -86,24 +86,46 @@ cote régénère la géométrie complète et met à jour la fiche technique du p
 
 ---
 
-## Cinématique
+## Cinématique — le dépliage est piloté par la sortie de tube
 
-Un unique paramètre `t ∈ [0,1]` décrit l'état complet du système ; il est
-**déterministe** (aucune intégration, sauf la rotation des rotors). On peut
-donc scruter la séquence dans les deux sens sans dérive.
+Un unique paramètre `t ∈ [0,1]` décrit l'état complet du système, de façon
+**déterministe** : on peut scruter la séquence dans les deux sens sans dérive.
 
-| Phase | Intervalle | Effet |
+Mais les bras ne suivent **pas** une simple fenêtre temporelle : ils sont
+asservis au **dégagement de bouche**, noté `clear` et exprimé en longueurs de
+bras, recalculé à chaque image à partir des positions animées du projectile et
+du lanceur :
+
+```
+clear = ( y_axe_articulation − y_bouche ) / longueur_de_bras
+```
+
+La géométrie impose une ouverture **claquante**, pas progressive :
+
+* Un point du bras situé à la distance `s` de l'axe passe au rayon
+  `r = r_axe + s·sin θ`. Tant qu'il est dans le tube, il faut `r ≤ 16 mm`,
+  d'où `θ ≤ asin((16 − 8,5) / 78) ≈ **5,5°**`. Un bras encore engagé est donc
+  mécaniquement bloqué contre le fût.
+* Le bras ne peut atteindre un angle utile qu'une fois **intégralement sorti**,
+  c'est-à-dire `clear ≥ 1`. Le ressort le déploie alors d'un coup, avec un
+  léger dépassement avant verrouillage en butée.
+
+L'indicateur « Dégagement de bouche » du panneau affiche cette valeur en temps
+réel : elle passe au vert à `1,00 L`, exactement à l'instant où les bras se
+libèrent. Déplacer le curseur de phase, changer la vitesse ou masquer le tube
+ne change rien à ce couplage.
+
+| Phase | Déclencheur | Effet |
 |---|---|---|
-| Éjection | 0,00 → 0,26 | Sortie de tube, le tube décroche et bascule |
-| Bras | 0,24 → 0,58 | 4 × 90° avec léger dépassement (ressort de verrouillage), paires opposées décalées de 3,5 % |
-| Pales | 0,46 → 0,76 | 8 pales, 90° chacune, superposées une fois repliées |
-| Régime | 0,62 → 1,00 | Montée en régime + flottement de tenue de vol |
+| Tir | `t` 0 → 0,62 | Vitesse quasi constante (sur 20 cm la décélération gravitaire est négligeable), roulis de stabilisation acquis dans le tube puis amorti |
+| Libération des bras | `clear` ≥ 1,00 | Butée mécanique à 5,5° tant que `clear < 1` |
+| Ouverture des bras | `clear` 1,00 → 1,72 | 4 × 90° avec dépassement de ressort ; paires opposées décalées de 0,07 L |
+| Dépliage des pales | `clear` 1,80 → 2,45 | 8 pales, 90° chacune |
+| Montée en régime | `t` 0,58 → 0,90 | Rampe de régime puis flottement de tenue de vol |
 
 La rotation des rotors est affichée à 1,2 % du régime réel : à 24 000 tr/min et
 60 Hz, une pale ferait 6,7 tours par image et deviendrait illisible (aliasing
 temporel).
-
----
 
 ## Optimisations
 

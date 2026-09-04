@@ -45,6 +45,8 @@ body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 var(--font);o
 .checks label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer}
 input[type=checkbox]{accent-color:var(--acc);margin:0}
 input[type=range]{width:100%;accent-color:var(--acc);height:18px;margin:0;cursor:pointer}
+.gauge{display:flex;justify-content:space-between;margin:6px 0 0;font-size:11px;color:var(--dim)}
+.gauge b{font:600 11px/1.4 var(--mono);color:var(--acc)}
 .phase-name{margin:10px 0 0;font:500 12px/1.3 var(--mono);color:var(--acc2)}
 .note{margin:10px 0 0;font-size:11px;line-height:1.5;color:#6f7d8a}
 #specs{margin:0;font-size:12px}
