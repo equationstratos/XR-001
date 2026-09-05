@@ -16,12 +16,16 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = join(root, '.single');
-const dest = join(root, 'docs', 'index.html');
+// Deux destinations, contenu identique :
+//   index.html      -> racine du depot : ce que sert GitHub Pages en mode
+//                      "branch / (root)", et ce qui s'ouvre en double-clic
+//   docs/index.html -> mode "branch /docs"
+const targets = [join(root, 'index.html'), join(root, 'docs', 'index.html')];
 
 rmSync(tmp, { recursive: true, force: true });
 
 await build({
-  root,
+  root: join(root, 'src'),
   configFile: false,
   base: './',
   logLevel: 'warn',
@@ -52,9 +56,15 @@ if (out.includes('bundle.js') || out.includes('bundle.css')) {
   throw new Error('Inlining incomplet : une reference externe subsiste.');
 }
 
-mkdirSync(dirname(dest), { recursive: true });
-writeFileSync(dest, out);
+const banner = '<!-- PAGE GENEREE — ne pas editer a la main.\n'
+  + '     Source : src/index.html + src/**  ·  Regenerer : npm run build:single -->\n';
+
+for (const dest of targets) {
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, banner + out);
+}
 writeFileSync(join(root, 'docs', '.nojekyll'), '');
 rmSync(tmp, { recursive: true, force: true });
 
-console.log(`docs/index.html — ${(statSync(dest).size / 1024).toFixed(0)} ko, page autonome (aucune dependance externe)`);
+const ko = (statSync(targets[0]).size / 1024).toFixed(0);
+console.log(`index.html + docs/index.html — ${ko} ko, page autonome (aucune dependance externe)`);

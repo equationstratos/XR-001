@@ -1,3 +1,5 @@
+<!-- PAGE GENEREE — ne pas editer a la main.
+     Source : src/index.html + src/**  ·  Regenerer : npm run build:single -->
 <!doctype html>
 <html lang="fr">
 <head>
@@ -3954,53 +3956,85 @@ void main() {
   <script>
   (function () {
     var TIMEOUT = 9000;
+    var GRACE = 700;      // laisse arriver un diagnostic plus precis
+    var pending = null;
+    var painted = false;
 
-    function show(title, detail, hint) {
+    // Un diagnostic "faible" (erreur de ressource secondaire, expiration du
+    // delai) peut etre remplace par un diagnostic precis ; l'inverse non.
+    // L'affichage est differe : au moment de peindre, le DOM est complet et le
+    // module a eu le temps d'echouer pour la vraie raison.
+    function report(title, detail, hint, weak) {
+      if (window.__xrBooted || painted) return;
+      if (pending && !pending.weak) return;
+      pending = { title: title, detail: detail || '', hint: hint || '', weak: !!weak };
+      setTimeout(paint, GRACE);
+    }
+    function paint() {
+      if (window.__xrBooted || painted || !pending) return;
+      painted = true;
       var box = document.getElementById('boot-error');
-      if (!box || box.getAttribute('data-shown')) return;
-      box.setAttribute('data-shown', '1');
       var spin = document.querySelector('#loading .spin');
       if (spin) spin.style.display = 'none';
       box.hidden = false;
-      box.querySelector('h2').textContent = title;
-      box.querySelector('.detail').textContent = detail || '';
-      box.querySelector('.hint').innerHTML = hint || '';
+      box.querySelector('h2').textContent = pending.title;
+      box.querySelector('.detail').textContent = pending.detail;
+      box.querySelector('.hint').innerHTML = pending.hint;
     }
-    window.__xrBootError = show;
+    window.__xrBootError = function (t, d, h) { pending = null; report(t, d, h, false); };
 
-    function diagnose(msg) {
+    // La page source charge ./main.js, qui importe « three » par son nom de
+    // paquet ; la page autonome et la page construite embarquent tout. Ce test
+    // tranche sans dependre du libelle d'erreur, que le navigateur traduit
+    // (Firefox : « spécificateur simple ... n'a pas été remappé »).
+    function isSourceEntry() {
+      var s = document.querySelector('script[type="module"][src]');
+      return !!s && /\/main\.js(\?|$)/.test(s.getAttribute('src') || '');
+    }
+
+    var NO_BUILD = 'Le navigateur ne sait pas résoudre l\'import <code>three</code> :'
+      + ' <code>src/index.html</code> est le point d\'entrée de développement, il doit passer par'
+      + ' <code>npm run build</code>.<br>La page autonome, elle, fonctionne partout sans rien'
+      + ' installer : c\'est l\'<code>index.html</code> à la racine du dépôt (identique à'
+      + ' <code>docs/index.html</code>).';
+
+    function fatal(msg) {
       msg = String((msg && msg.message) || msg || '');
-      if (/module specifier|Importing a module script failed|Failed to fetch dynamically|MIME type/i.test(msg)) {
-        return ['Page publiée sans build', msg,
-          'Le navigateur ne sait pas résoudre l\'import <code>three</code> : cette page est le point d\'entrée du projet, elle doit passer par <code>npm run build</code>.<br>Pour une page qui fonctionne telle quelle, ouvrez ou publiez <code>docs/index.html</code> (version autonome, sans dépendance).'];
+      if (isSourceEntry() || /module specifier|spécificateur|remapp|bare specifier|Importing a module script failed|Failed to fetch dynamically|MIME type/i.test(msg)) {
+        report('Page publiée sans build', msg, NO_BUILD, false);
+      } else if (/WebGL|context/i.test(msg)) {
+        report('WebGL indisponible', msg,
+          'Activez l\'accélération matérielle du navigateur, ou essayez un autre navigateur.', false);
+      } else {
+        report('Erreur au démarrage', msg, 'Détail complet dans la console du navigateur.', false);
       }
-      if (/WebGL|context/i.test(msg)) {
-        return ['WebGL indisponible', msg,
-          'Activez l\'accélération matérielle du navigateur, ou essayez un autre navigateur.'];
-      }
-      return ['Erreur au démarrage', msg, 'Détail complet dans la console du navigateur.'];
     }
 
     window.addEventListener('error', function (e) {
-      if (e && e.target && e.target !== window && e.target.tagName === 'SCRIPT') {
-        show('Script non chargé', e.target.src || '',
-          'Le fichier est introuvable à cette adresse (404) ou servi avec un type MIME incorrect.');
+      var t = e && e.target;
+      if (t && t !== window && t.tagName) {
+        // Erreur de chargement d'une ressource. Seul un script manquant est
+        // fatal ; une feuille de style absente ne bloque pas le demarrage.
+        if (t.tagName === 'SCRIPT') {
+          if (isSourceEntry()) report('Page publiée sans build', t.src || '', NO_BUILD, false);
+          else report('Script non chargé', t.src || '',
+            'Le fichier est introuvable à cette adresse (404) ou servi avec un type MIME incorrect.', false);
+        } else {
+          report('Ressource non chargée', t.href || t.src || '',
+            'Un fichier secondaire est introuvable (404).', true);
+        }
         return;
       }
-      var d = diagnose(e && (e.error || e.message));
-      show(d[0], d[1], d[2]);
+      fatal(e && (e.error || e.message));
     }, true);
 
-    window.addEventListener('unhandledrejection', function (e) {
-      var d = diagnose(e && e.reason);
-      show(d[0], d[1], d[2]);
-    });
+    window.addEventListener('unhandledrejection', function (e) { fatal(e && e.reason); });
 
     setTimeout(function () {
-      if (window.__xrBooted) return;
-      show('Le visualiseur n\'a pas démarré',
+      report('Le visualiseur n\'a pas démarré',
         'Aucune erreur n\'a été remontée en ' + (TIMEOUT / 1000) + ' s.',
-        'Vérifiez la console du navigateur, puis essayez <code>docs/index.html</code>.');
+        'Vérifiez la console du navigateur, puis essayez l\'<code>index.html</code> de la racine'
+        + ' (page autonome).', true);
     }, TIMEOUT);
   })();
   </script>

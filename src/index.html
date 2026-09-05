@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>XR-001 · Visualiseur 3D — micro-drone repliable 40 mm</title>
+<meta name="description" content="Visualiseur 3D temps reel d'un micro-drone repliable tube-launched de calibre 40 mm." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0e11'/%3E%3Cpath d='M16 5v22M6 11h20' stroke='%237fd1a8' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <header id="topbar">
+      <div class="brand">
+        <span class="tag">XR-001</span>
+        <h1>Micro-drone repliable · calibre 40 mm</h1>
+      </div>
+      <div id="hud" class="hud">
+        <span data-hud="fps">-- fps</span>
+        <span data-hud="calls">-- draw</span>
+        <span data-hud="tris">-- tri</span>
+      </div>
+      <button id="panel-toggle" class="icon-btn" aria-label="Afficher/masquer le panneau">☰</button>
+    </header>
+
+    <aside id="panel">
+      <section class="grp">
+        <h2>Séquence de déploiement</h2>
+        <div class="row btns">
+          <button data-preset="0" class="chip">Tube</button>
+          <button data-preset="0.2" class="chip">Tir</button>
+          <button data-preset="0.36" class="chip">Sortie</button>
+          <button data-preset="1" class="chip">Vol</button>
+        </div>
+        <label class="row">
+          <span>Phase <b data-out="phase">0 %</b></span>
+          <input id="phase" type="range" min="0" max="1" step="0.001" value="0" />
+        </label>
+        <div class="row btns">
+          <button id="play" class="chip primary">▶ Lancer la séquence</button>
+          <label class="chip toggle"><input id="loop" type="checkbox" /> Boucle</label>
+        </div>
+        <p class="phase-name" data-out="phaseName">Configuration stockée (tube)</p>
+        <p class="gauge"><span>Dégagement de bouche</span><b data-out="clear">0,00 L</b></p>
+      </section>
+
+      <section class="grp">
+        <h2>Analyse</h2>
+        <label class="row">
+          <span>Vue éclatée <b data-out="explode">0 %</b></span>
+          <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
+        </label>
+        <label class="row">
+          <span>Coupe longitudinale <b data-out="clip">off</b></span>
+          <input id="clip" type="range" min="-1" max="1" step="0.01" value="1" />
+        </label>
+        <div class="row checks">
+          <label><input id="opt-internals" type="checkbox" checked /> Internes</label>
+          <label><input id="opt-tube" type="checkbox" checked /> Lanceur</label>
+          <label><input id="opt-labels" type="checkbox" checked /> Repères</label>
+          <label><input id="opt-wire" type="checkbox" /> Filaire</label>
+          <label><input id="opt-spin" type="checkbox" checked /> Rotors</label>
+          <label><input id="opt-orbit" type="checkbox" /> Rotation auto</label>
+        </div>
+      </section>
+
+      <section class="grp">
+        <h2>Mécanisme de déploiement</h2>
+        <div class="row btns">
+          <button id="mech" class="chip">Vue mécanisme</button>
+        </div>
+        <p class="gauge"><span>Ouverture du bras</span><b data-out="arm">0°</b></p>
+        <p class="gauge"><span>Verrou</span><b data-out="lock">ouvert</b></p>
+        <dl id="mech-specs"></dl>
+      </section>
+
+      <section class="grp">
+        <h2>Caractéristiques</h2>
+        <dl id="specs"></dl>
+      </section>
+
+      <section class="grp">
+        <div class="row btns">
+          <button id="shot" class="chip">⤓ Capture PNG</button>
+          <button id="reset" class="chip">⟲ Vue</button>
+        </div>
+        <p class="note">Modèle paramétrique à titre d'étude mécanique : structure, cinématique de dépliage et implantation. Le module avant est une enveloppe de charge utile générique (inerte).</p>
+      </section>
+    </aside>
+
+    <div id="loading">
+      <div class="spin"></div>
+      <div id="boot-error" hidden>
+        <h2></h2>
+        <p class="detail"></p>
+        <p class="hint"></p>
+      </div>
+    </div>
+  </div>
+  <!--
+    Garde-fou de démarrage. Script CLASSIQUE volontairement : il s'exécute même
+    si le module ci-dessous n'arrive jamais à se charger (import non résolu,
+    fichier absent, WebGL indisponible). Sans lui, le rond de chargement
+    tournerait indéfiniment sans rien dire.
+  -->
+  <script>
+  (function () {
+    var TIMEOUT = 9000;
+    var GRACE = 700;      // laisse arriver un diagnostic plus precis
+    var pending = null;
+    var painted = false;
+
+    // Un diagnostic "faible" (erreur de ressource secondaire, expiration du
+    // delai) peut etre remplace par un diagnostic precis ; l'inverse non.
+    // L'affichage est differe : au moment de peindre, le DOM est complet et le
+    // module a eu le temps d'echouer pour la vraie raison.
+    function report(title, detail, hint, weak) {
+      if (window.__xrBooted || painted) return;
+      if (pending && !pending.weak) return;
+      pending = { title: title, detail: detail || '', hint: hint || '', weak: !!weak };
+      setTimeout(paint, GRACE);
+    }
+    function paint() {
+      if (window.__xrBooted || painted || !pending) return;
+      painted = true;
+      var box = document.getElementById('boot-error');
+      var spin = document.querySelector('#loading .spin');
+      if (spin) spin.style.display = 'none';
+      box.hidden = false;
+      box.querySelector('h2').textContent = pending.title;
+      box.querySelector('.detail').textContent = pending.detail;
+      box.querySelector('.hint').innerHTML = pending.hint;
+    }
+    window.__xrBootError = function (t, d, h) { pending = null; report(t, d, h, false); };
+
+    // La page source charge ./main.js, qui importe « three » par son nom de
+    // paquet ; la page autonome et la page construite embarquent tout. Ce test
+    // tranche sans dependre du libelle d'erreur, que le navigateur traduit
+    // (Firefox : « spécificateur simple ... n'a pas été remappé »).
+    function isSourceEntry() {
+      var s = document.querySelector('script[type="module"][src]');
+      return !!s && /\/main\.js(\?|$)/.test(s.getAttribute('src') || '');
+    }
+
+    var NO_BUILD = 'Le navigateur ne sait pas résoudre l\'import <code>three</code> :'
+      + ' <code>src/index.html</code> est le point d\'entrée de développement, il doit passer par'
+      + ' <code>npm run build</code>.<br>La page autonome, elle, fonctionne partout sans rien'
+      + ' installer : c\'est l\'<code>index.html</code> à la racine du dépôt (identique à'
+      + ' <code>docs/index.html</code>).';
+
+    function fatal(msg) {
+      msg = String((msg && msg.message) || msg || '');
+      if (isSourceEntry() || /module specifier|spécificateur|remapp|bare specifier|Importing a module script failed|Failed to fetch dynamically|MIME type/i.test(msg)) {
+        report('Page publiée sans build', msg, NO_BUILD, false);
+      } else if (/WebGL|context/i.test(msg)) {
+        report('WebGL indisponible', msg,
+          'Activez l\'accélération matérielle du navigateur, ou essayez un autre navigateur.', false);
+      } else {
+        report('Erreur au démarrage', msg, 'Détail complet dans la console du navigateur.', false);
+      }
+    }
+
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      if (t && t !== window && t.tagName) {
+        // Erreur de chargement d'une ressource. Seul un script manquant est
+        // fatal ; une feuille de style absente ne bloque pas le demarrage.
+        if (t.tagName === 'SCRIPT') {
+          if (isSourceEntry()) report('Page publiée sans build', t.src || '', NO_BUILD, false);
+          else report('Script non chargé', t.src || '',
+            'Le fichier est introuvable à cette adresse (404) ou servi avec un type MIME incorrect.', false);
+        } else {
+          report('Ressource non chargée', t.href || t.src || '',
+            'Un fichier secondaire est introuvable (404).', true);
+        }
+        return;
+      }
+      fatal(e && (e.error || e.message));
+    }, true);
+
+    window.addEventListener('unhandledrejection', function (e) { fatal(e && e.reason); });
+
+    setTimeout(function () {
+      report('Le visualiseur n\'a pas démarré',
+        'Aucune erreur n\'a été remontée en ' + (TIMEOUT / 1000) + ' s.',
+        'Vérifiez la console du navigateur, puis essayez l\'<code>index.html</code> de la racine'
+        + ' (page autonome).', true);
+    }, TIMEOUT);
+  })();
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

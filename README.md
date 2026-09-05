@@ -18,28 +18,47 @@ fichier de cotes unique.
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
-npm run build        # bundle statique dans dist/
-npm run build:single # page autonome dans docs/index.html
+npm run dev          # http://localhost:5173  (entrée : src/index.html)
+npm run build        # bundle classique dans dist/
+npm run build:single # page autonome -> index.html + docs/index.html
+npm run build:all    # les deux
 npm run preview      # sert dist/ sur le port 4173
 ```
 
-## Mise en ligne — à lire avant de publier
+## Mise en ligne
 
-`index.html` à la racine est le **point d'entrée du projet**, pas une page
-autonome : il charge `./src/main.js`, qui importe `three` par son nom de
-paquet. Un navigateur ne sait pas résoudre un spécificateur nu. **Publier le
-dépôt tel quel donne donc une page qui ne démarre jamais** — le rond de
-chargement tourne indéfiniment, avec dans la console :
+**`index.html`, à la racine, est une page autonome générée** : un fichier
+unique de 544 ko contenant le HTML, le CSS et tout le JavaScript en ligne,
+three.js compris. Aucune dépendance, aucun serveur, aucun build côté
+hébergeur. Quelle que soit la façon dont vous publiez, ça fonctionne :
 
-```
-Failed to resolve module specifier "three"
-```
-
-Trois façons de publier, au choix :
-
-| Méthode | Ce qu'il faut faire |
+| Publication | Ce qu'il faut faire |
 |---|---|
+| GitHub Pages, `branch` / **root** | Rien. C'est le cas par défaut, la racine sert la page autonome. |
+| GitHub Pages, `branch` / **`/docs`** | Rien. `docs/index.html` est le même fichier. |
+| GitHub Pages via **Actions** | Settings → Pages → Source : *GitHub Actions*. Le workflow `.github/workflows/pages.yml` construit et publie `dist/`. |
+| Autre hébergeur, ou hors ligne | Copiez `index.html` où vous voulez, ou ouvrez-le en double-clic (`file://`). |
+
+Le point d'entrée de **développement** est `src/index.html` : lui charge
+`./main.js`, qui importe `three` par son nom de paquet. Un navigateur ne sait
+pas résoudre un spécificateur nu — cette page-là ne peut donc pas être publiée
+telle quelle, elle doit passer par Vite. C'est la seule page du dépôt dans ce
+cas.
+
+> **Après toute modification du code**, lancez `npm run build:single` : sans
+> quoi la page publiée reste sur la version précédente. Les fichiers générés
+> portent un en-tête `PAGE GENEREE — ne pas editer a la main`.
+
+Si malgré tout une page ne démarre pas, elle ne reste plus bloquée sur le rond
+de chargement : un garde-fou — script classique, donc exécuté même quand le
+module échoue — affiche l'erreur, sa cause probable et la marche à suivre. Il
+reconnaît l'import non résolu sans dépendre du libellé traduit par le
+navigateur (il regarde quel script la page charge), distingue un script
+manquant d'une ressource secondaire absente, laisse un diagnostic précis
+remplacer un diagnostic générique, et se déclenche au bout de 9 s si rien
+n'est remonté.
+
+---|---|
 | **Page autonome** (la plus simple) | `docs/index.html` est un fichier unique de 542 ko contenant tout, three.js compris. Ouvrez-le en double-clic, déposez-le sur n'importe quel hébergeur, envoyez-le par mail. Aucune dépendance, aucun serveur. |
 | **GitHub Pages depuis `/docs`** | Settings → Pages → Source : *Deploy from a branch*, dossier `/docs`. Rien d'autre à faire, `docs/` est versionné. |
 | **GitHub Pages via Actions** | Settings → Pages → Source : *GitHub Actions*. Le workflow `.github/workflows/pages.yml` construit et publie `dist/` à chaque push. |
@@ -232,7 +251,10 @@ c'est ce qui permet au train bras + rotor de tenir dans la longueur du bras.
 ## Organisation du code
 
 ```
+index.html                 page AUTONOME générée (publiée) — ne pas éditer
+docs/index.html            copie de la précédente, pour Pages en mode /docs
 src/
+├── index.html             point d'entrée de développement (source)
 ├── config.js              cotes, ancrages axiaux, séquence, fiche technique
 ├── core/
 │   ├── viewer.js          renderer, caméra, éclairage, IBL, boucle à la demande
