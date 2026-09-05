@@ -18,14 +18,39 @@ fichier de cotes unique.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # bundle statique dans dist/
-npm run preview    # sert dist/ sur le port 4173
+npm run dev          # http://localhost:5173
+npm run build        # bundle statique dans dist/
+npm run build:single # page autonome dans docs/index.html
+npm run preview      # sert dist/ sur le port 4173
 ```
 
-Le résultat est un site statique : `dist/` se déploie tel quel sur n'importe
-quel hébergeur (GitHub Pages, S3, Netlify…). `base: './'` est déjà configuré
-pour un déploiement en sous-répertoire.
+## Mise en ligne — à lire avant de publier
+
+`index.html` à la racine est le **point d'entrée du projet**, pas une page
+autonome : il charge `./src/main.js`, qui importe `three` par son nom de
+paquet. Un navigateur ne sait pas résoudre un spécificateur nu. **Publier le
+dépôt tel quel donne donc une page qui ne démarre jamais** — le rond de
+chargement tourne indéfiniment, avec dans la console :
+
+```
+Failed to resolve module specifier "three"
+```
+
+Trois façons de publier, au choix :
+
+| Méthode | Ce qu'il faut faire |
+|---|---|
+| **Page autonome** (la plus simple) | `docs/index.html` est un fichier unique de 542 ko contenant tout, three.js compris. Ouvrez-le en double-clic, déposez-le sur n'importe quel hébergeur, envoyez-le par mail. Aucune dépendance, aucun serveur. |
+| **GitHub Pages depuis `/docs`** | Settings → Pages → Source : *Deploy from a branch*, dossier `/docs`. Rien d'autre à faire, `docs/` est versionné. |
+| **GitHub Pages via Actions** | Settings → Pages → Source : *GitHub Actions*. Le workflow `.github/workflows/pages.yml` construit et publie `dist/` à chaque push. |
+
+Après toute modification du code, régénérez la page autonome avec
+`npm run build:single` (ou `npm run build:all` pour les deux sorties).
+
+Si quelque chose échoue malgré tout, la page ne reste plus bloquée sur le rond
+de chargement : un garde-fou (script classique, indépendant du module) affiche
+l'erreur, sa cause probable et la marche à suivre — import non résolu, fichier
+404, WebGL indisponible, ou absence de démarrage au bout de 9 s.
 
 ---
 
@@ -222,6 +247,9 @@ src/
 │   ├── mechview.js        vue d'inspection du mécanisme (cadrage + isolement)
 │   └── labels.js          repères 2D projetés à la main
 └── main.js                composition
+
+scripts/build-single.mjs   génère docs/index.html (page autonome tout-en-un)
+.github/workflows/pages.yml publication GitHub Pages
 ```
 
 ## Pistes d'extension

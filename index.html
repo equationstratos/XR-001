@@ -91,8 +91,74 @@
       </section>
     </aside>
 
-    <div id="loading"><div class="spin"></div></div>
+    <div id="loading">
+      <div class="spin"></div>
+      <div id="boot-error" hidden>
+        <h2></h2>
+        <p class="detail"></p>
+        <p class="hint"></p>
+      </div>
+    </div>
   </div>
+  <!--
+    Garde-fou de démarrage. Script CLASSIQUE volontairement : il s'exécute même
+    si le module ci-dessous n'arrive jamais à se charger (import non résolu,
+    fichier absent, WebGL indisponible). Sans lui, le rond de chargement
+    tournerait indéfiniment sans rien dire.
+  -->
+  <script>
+  (function () {
+    var TIMEOUT = 9000;
+
+    function show(title, detail, hint) {
+      var box = document.getElementById('boot-error');
+      if (!box || box.getAttribute('data-shown')) return;
+      box.setAttribute('data-shown', '1');
+      var spin = document.querySelector('#loading .spin');
+      if (spin) spin.style.display = 'none';
+      box.hidden = false;
+      box.querySelector('h2').textContent = title;
+      box.querySelector('.detail').textContent = detail || '';
+      box.querySelector('.hint').innerHTML = hint || '';
+    }
+    window.__xrBootError = show;
+
+    function diagnose(msg) {
+      msg = String((msg && msg.message) || msg || '');
+      if (/module specifier|Importing a module script failed|Failed to fetch dynamically|MIME type/i.test(msg)) {
+        return ['Page publiée sans build', msg,
+          'Le navigateur ne sait pas résoudre l\'import <code>three</code> : cette page est le point d\'entrée du projet, elle doit passer par <code>npm run build</code>.<br>Pour une page qui fonctionne telle quelle, ouvrez ou publiez <code>docs/index.html</code> (version autonome, sans dépendance).'];
+      }
+      if (/WebGL|context/i.test(msg)) {
+        return ['WebGL indisponible', msg,
+          'Activez l\'accélération matérielle du navigateur, ou essayez un autre navigateur.'];
+      }
+      return ['Erreur au démarrage', msg, 'Détail complet dans la console du navigateur.'];
+    }
+
+    window.addEventListener('error', function (e) {
+      if (e && e.target && e.target !== window && e.target.tagName === 'SCRIPT') {
+        show('Script non chargé', e.target.src || '',
+          'Le fichier est introuvable à cette adresse (404) ou servi avec un type MIME incorrect.');
+        return;
+      }
+      var d = diagnose(e && (e.error || e.message));
+      show(d[0], d[1], d[2]);
+    }, true);
+
+    window.addEventListener('unhandledrejection', function (e) {
+      var d = diagnose(e && e.reason);
+      show(d[0], d[1], d[2]);
+    });
+
+    setTimeout(function () {
+      if (window.__xrBooted) return;
+      show('Le visualiseur n\'a pas démarré',
+        'Aucune erreur n\'a été remontée en ' + (TIMEOUT / 1000) + ' s.',
+        'Vérifiez la console du navigateur, puis essayez <code>docs/index.html</code>.');
+    }, TIMEOUT);
+  })();
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

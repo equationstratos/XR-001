@@ -6,6 +6,7 @@ import { Labels } from './ui/labels.js';
 import { MechView } from './ui/mechview.js';
 import { initPanel } from './ui/panel.js';
 
+function boot() {
 const viewer = new Viewer(document.getElementById('scene'));
 const materials = createMaterials(viewer.clippingPlanes);
 const drone = new Drone(materials);
@@ -29,9 +30,23 @@ viewer.updaters.push((dt) => {
 });
 
 viewer.start();
+// Le garde-fou de index.html attend ce drapeau : tant qu'il est absent, il
+// affiche un diagnostic plutot que de laisser tourner le rond de chargement.
+window.__xrBooted = true;
 requestAnimationFrame(() => document.getElementById('loading').classList.add('done'));
 
 // Rechargement a chaud propre en developpement.
 if (import.meta.hot) {
   import.meta.hot.dispose(() => { drone.dispose(); labels.dispose(); mechLabels.dispose(); viewer.dispose(); });
+}
+}
+
+try {
+  boot();
+} catch (err) {
+  console.error(err);
+  if (window.__xrBootError) {
+    window.__xrBootError('Erreur au démarrage', String((err && err.message) || err),
+      'Détail complet dans la console du navigateur.');
+  }
 }
