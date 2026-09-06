@@ -3,7 +3,7 @@ import { D, Y, MECH, EXPLODE } from '../config.js';
 import {
   buildChassis, buildBay, buildShroud, buildCollar, buildLink, buildShaft, buildRunner,
   buildTorsionSpring, buildDetent, buildHead, buildNose, buildArm, buildMotor,
-  buildBlade, buildHub, buildInternals, buildTube,
+  buildBlade, buildHub, buildInternals, buildCamera, buildFasteners, buildMotorScrews, buildTube,
 } from './parts.js';
 
 const RAD = Math.PI / 180;
@@ -62,6 +62,7 @@ export class Drone {
     this._mesh(h.bezel, M.aluDark, this.head);
     this._mesh(h.lens, M.glass, this.head, false);
     this._mesh(h.led, M.led, this.head, false);
+    this._mesh(buildCamera(D), M.pcb, this.head, false);
 
     // --- soute energie / avionique ---
     this.bay = new THREE.Group();
@@ -75,7 +76,18 @@ export class Drone {
     this.cellA = this._mesh(g.cellA, M.cellA, this.internals, false);
     this.cellB = this._mesh(g.cellB, M.cellB, this.internals, false);
     this._mesh(g.caps, M.copper, this.internals, false);
+    this._mesh(g.tabs, M.alu, this.internals, false);
     this.pcb = this._mesh(g.pcb, M.pcb, this.internals, false);
+    this._mesh(g.comps, M.polymer, this.internals, false);
+
+    // --- visserie : vis acier + inserts laiton a chaud ---------------
+    // Les pieces de structure sont imprimees ; on n'y taraude pas, chaque
+    // percage recoit un insert laiton et la vis s'y visse.
+    const f = buildFasteners(D);
+    this.screws = this._mesh(f.screws, M.steel, this.root, false);
+    this.screws.name = 'screws';
+    this.inserts = this._mesh(f.inserts, M.brass, this.root, false);
+    this.inserts.name = 'inserts';
 
     // --- module de charge utile (enveloppe generique, inerte) ---
     this.nose = new THREE.Group();
@@ -99,7 +111,8 @@ export class Drone {
     const bladeGeo = buildBlade(D);
     const linkGeo = buildLink();
     const coilGeo = buildTorsionSpring();
-    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, linkGeo, coilGeo);
+    const motorScrewGeo = buildMotorScrews(D);
+    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, linkGeo, coilGeo, motorScrewGeo);
 
     for (let i = 0; i < D.armCount; i++) {
       const az = (D.armSweep + i * (360 / D.armCount)) * RAD;
@@ -143,9 +156,10 @@ export class Drone {
       hinge.add(motor);
       this._mesh(bell, M.alu, motor);
       this._mesh(stator, M.copper, motor, false);
+      this._mesh(motorScrewGeo, M.steel, hinge, false);
 
       const hub = new THREE.Group();
-      hub.position.y = D.motorH / 2 + 1.2 * 0.001;
+      hub.position.y = D.motorH / 2 + 0.6 * 0.001;
       motor.add(hub);
       this._mesh(hubGeo, M.aluDark, hub, false);
 
@@ -153,7 +167,7 @@ export class Drone {
       const blades = [];
       for (let b = 0; b < D.bladeCount; b++) {
         const pivot = new THREE.Group();
-        pivot.position.set((b === 0 ? 1 : -1) * D.hubR, 2.2 * 0.001, 0);
+        pivot.position.set((b === 0 ? 1 : -1) * D.hubR, 0.9 * 0.001, 0);
         hub.add(pivot);
         this._mesh(bladeGeo, M.blade, pivot, false);
         blades.push(pivot);

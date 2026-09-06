@@ -1,4 +1,4 @@
-import { SPECS, MECH_SPECS } from '../config.js';
+import { SPECS, MECH_SPECS, BOM } from '../config.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -20,6 +20,7 @@ export function initPanel({ viewer, drone, deploy, labels, mech }) {
   const fiche = (rows) => rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
   $('#specs').innerHTML = fiche(SPECS);
   $('#mech-specs').innerHTML = fiche(MECH_SPECS);
+  $('#bom').innerHTML = fiche(BOM);
 
   const dirty = () => (viewer.dirty = true);
 

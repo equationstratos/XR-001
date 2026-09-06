@@ -21,12 +21,22 @@ const L = MECH.link;                      // entraxe de bielle
 const BU = MECH.rodPin - D.hingeR;        // maneton d'etoile, en radial
 
 /**
- * Angle de repos du bras replie. Le ressort le pousse en permanence : il
- * vient porter sur la face interne du carenage, legerement ouvert.
- *   sin θ_repos = (r_carenage - r_axe - r_bras) / L_bras
- * soit 3,3° — la seule ouverture possible tant que le bras est engage.
+ * Angle de repos du bras replie. Le ressort le pousse en permanence, le bras
+ * vient donc porter sur la face interne du carenage. La piece qui touche n'est
+ * PAS le tube du bras mais le TRAIN ROTOR en bout : une fois le bras replie,
+ * la hauteur du moteur et du moyeu devient RADIALE et pese bien plus que le
+ * rayon du fuseau. On resout donc, en prenant la racine voisine de 90° :
+ *
+ *     stackH·sin θ + L_bras·cos θ = r_carenage - r_axe
+ *
+ * Utiliser le rayon du fuseau donnait 3,3° d'ouverture au repos, et a cet
+ * angle le rotor sortait de 7 mm hors du calibre.
  */
-export const TH_REST = Math.PI / 2 - Math.asin((MECH.shroudRi - D.hingeR - D.armR) / D.armLen);
+const REST_R = MECH.shroudRi - D.hingeR;
+const REST_A = Math.hypot(MECH.stackH, D.armLen);
+export const TH_REST = Math.PI
+  - Math.asin(Math.min(1, REST_R / REST_A))
+  - Math.atan2(D.armLen, MECH.stackH);
 export const TH_DEP = -D.armDihedral * RAD;
 
 /** Maneton de manivelle, porte par le pied de bras. */

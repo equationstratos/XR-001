@@ -67,11 +67,11 @@ export function buildChassis(D) {
 /**
  * Carenage de la zone de repliage : 4 panneaux en secteur d'anneau,
  * separes par 4 fentes de 40 deg par lesquelles les bras sortent.
- * Rayon interieur 16 mm > encombrement des bras replies (15,5 mm),
- * rayon exterieur 17,4 mm < rayon interieur du tube (17,8 mm).
+ * Rayon interieur 18 mm > encombrement du train rotor replie (17,0 mm),
+ * rayon exterieur 19,4 mm < alesage du tube (20 mm).
  */
 export function buildShroud(D) {
-  const ri = 16 * mm, ro = 17.4 * mm;
+  const ri = MECH.shroudRi, ro = 19.4 * mm;
   const top = Y.cageTop - 3 * mm, bot = Y.cageBot + 3 * mm;
   const len = top - bot, yc = (top + bot) / 2;
   const panel = 50 * RAD, seg = 10;
@@ -264,11 +264,13 @@ export function buildHead(D) {
   g.push(place(cyl(D.headR * 1.02, D.headR * 1.02, 2.5 * mm, 32), { y: y0 + D.headLen * 0.74 }));
   const body = mergeGeometries(g, false);
 
+  // Optique ENCASTREE : la calotte etait auparavant posee sur la peau et
+  // depassait de 5 mm du calibre. Elle est desormais en retrait de 0,8 mm.
   const lens = place(new THREE.SphereGeometry(D.lensR, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), {
-    y: y0 + D.headLen * 0.45, z: D.headR - 1.2 * mm, rx: Math.PI / 2,
+    y: y0 + D.headLen * 0.45, z: D.headR - D.lensR - 0.8 * mm, rx: Math.PI / 2,
   });
-  const bezel = place(cyl(D.lensR * 1.28, D.lensR * 1.28, 2 * mm, 20), {
-    y: y0 + D.headLen * 0.45, z: D.headR - 1.6 * mm, rx: Math.PI / 2,
+  const bezel = place(cyl(D.lensR * 1.22, D.lensR * 1.22, 1.6 * mm, 20), {
+    y: y0 + D.headLen * 0.45, z: D.headR - 3.0 * mm, rx: Math.PI / 2,
   });
   const ant = place(cyl(1.1 * mm, 1.1 * mm, 16 * mm, 8), { y: y0 + D.headLen + 10 * mm, x: D.headR * 0.5 });
   const led = place(new THREE.SphereGeometry(1.4 * mm, 10, 8), { y: y0 + D.headLen * 0.25, z: -D.headR + 0.4 * mm });
@@ -408,49 +410,121 @@ export function buildBlade(D) {
  */
 export function buildHub(D) {
   const K = MECH;
+  // Platine surbaissee : chaque millimetre au-dessus de l'axe du bras devient
+  // de l'encombrement radial une fois le bras replie.
   const g = [
-    cyl(D.hubR * 0.75, D.hubR * 0.75, 4 * mm, 14),
-    place(new THREE.BoxGeometry(2 * D.hubR + 4.6 * mm, 1.6 * mm, 5.2 * mm), { y: 1.4 * mm }),
-    place(cyl(D.hubR * 0.4, D.hubR * 0.4, 5 * mm, 10), { y: 2.2 * mm }),
+    cyl(D.hubR * 0.75, D.hubR * 0.75, 3 * mm, 14),
+    place(new THREE.BoxGeometry(2 * D.hubR + 4.6 * mm, 1.4 * mm, 5.2 * mm), { y: 1.0 * mm }),
+    place(cyl(D.hubR * 0.4, D.hubR * 0.4, 3 * mm, 10), { y: 1.2 * mm }),
   ];
   for (const s2 of [1, -1]) {
     // vis epaulee de charniere
-    g.push(place(cyl(K.screwR, K.screwR, 5.4 * mm, 10), { x: s2 * D.hubR, y: 1.4 * mm }));
-    g.push(place(cyl(K.screwR * 2, K.screwR * 2, 1.1 * mm, 10), { x: s2 * D.hubR, y: 4 * mm }));
+    g.push(place(cyl(K.screwR, K.screwR, 3.8 * mm, 10), { x: s2 * D.hubR, y: 1.0 * mm }));
+    g.push(place(cyl(K.screwR * 2, K.screwR * 2, 0.9 * mm, 10), { x: s2 * D.hubR, y: 2.7 * mm }));
     // butee de pale (cote deploye)
-    g.push(place(new THREE.BoxGeometry(2.2 * mm, 3.4 * mm, 1.6 * mm), {
-      x: s2 * (D.hubR + 2.4 * mm), y: 1.4 * mm, z: s2 * 2.4 * mm,
+    g.push(place(new THREE.BoxGeometry(2.2 * mm, 2.6 * mm, 1.6 * mm), {
+      x: s2 * (D.hubR + 2.4 * mm), y: 1.0 * mm, z: s2 * 2.4 * mm,
     }));
   }
   return mergeGeometries(g, false);
 }
 
 /* ---------------------------- internes ---------------------------- */
+/**
+ * Soute : accus et pile d'electronique.
+ *
+ * Accus : deux elements Li-ion 13 x 42 en 2S, sous gaine thermoretractable,
+ * relies par des languettes de nickel soudees par points, avec un circuit de
+ * protection colle en travers des cosses.
+ *
+ * Avionique : pile de trois cartes au format 20 x 20 (entraxe 16), montees
+ * sur entretoises et amorties par des passe-fils silicone :
+ *   - controleur de vol, gyro + barometre, connecteur de nappe camera
+ *   - ESC 4-en-1, quatre etages de MOSFET et son condensateur de bus
+ *   - emetteur video + radio, avec sa sortie antenne
+ */
 export function buildInternals(D) {
   const yc = Y.cageBot - D.bayLen / 2;
-  const cells = [], caps = [];
+  const cells = [], caps = [], tabs = [], boards = [], comps = [];
+
+  // --- accus 2S ---
   for (const s of [1, -1]) {
     const z = s * (D.cellR + 0.8 * mm);
-    cells.push(place(cyl(D.cellR, D.cellR, D.cellLen, 18), { z, x: 2 * mm, y: yc }));
+    cells.push(place(cyl(D.cellR, D.cellR, D.cellLen, 20), { z, x: 2 * mm, y: yc }));
+    // borne positive + gaine
     caps.push(place(cyl(D.cellR * 0.5, D.cellR * 0.5, 1.6 * mm, 12), { z, x: 2 * mm, y: yc + D.cellLen / 2 }));
+    for (const e of [1, -1]) {
+      caps.push(place(cyl(D.cellR + 0.25 * mm, D.cellR + 0.25 * mm, 2 * mm, 20), {
+        z, x: 2 * mm, y: yc + e * (D.cellLen / 2 - 2.5 * mm),
+      }));
+    }
   }
-  const pcb = place(new THREE.BoxGeometry(D.pcbT, D.pcbH, D.pcbW), { x: -D.bayR * 0.58, y: yc });
-  const comps = [];
-  for (let i = 0; i < 6; i++) {
-    const c = new THREE.BoxGeometry(1.8 * mm, 5 * mm, 4 * mm);
-    place(c, {
-      x: -D.bayR * 0.58 + 2 * mm,
-      y: yc - D.pcbH / 2 + 6 * mm + i * 5.5 * mm,
-      z: (i % 2 ? 1 : -1) * 4 * mm,
-    });
-    comps.push(c);
+  // languettes de nickel soudees par points
+  tabs.push(place(new THREE.BoxGeometry(4 * mm, 0.25 * mm, 2 * D.cellR + 3 * mm), {
+    x: 2 * mm, y: yc + D.cellLen / 2 + 1.2 * mm,
+  }));
+  for (const s of [1, -1]) {
+    tabs.push(place(new THREE.BoxGeometry(4 * mm, 0.25 * mm, 5 * mm), {
+      x: 2 * mm, z: s * (D.cellR + 0.8 * mm), y: yc - D.cellLen / 2 - 1.0 * mm,
+    }));
   }
-  return { cellA: cells[0], cellB: cells[1], caps: mergeGeometries(caps, false), pcb: mergeGeometries([pcb, ...comps], false), yc };
+  // circuit de protection colle en travers des cosses
+  boards.push(place(new THREE.BoxGeometry(9 * mm, 0.9 * mm, 16 * mm), {
+    x: 2 * mm, y: yc + D.cellLen / 2 + 3.4 * mm,
+  }));
+
+  // --- pile avionique : trois cartes 20 x 20 ---
+  const bY = [yc - D.cellLen / 2 - 7 * mm, yc - D.cellLen / 2 - 13 * mm, yc - D.cellLen / 2 - 19 * mm];
+  bY.forEach((y, k) => {
+    boards.push(place(new THREE.BoxGeometry(20 * mm, k === 1 ? 1.6 * mm : 1.2 * mm, 20 * mm), { y }));
+    // entretoises aux quatre coins (entraxe 16)
+    if (k < 2) {
+      for (const sx of [1, -1]) for (const sz of [1, -1]) {
+        comps.push(place(cyl(1.5 * mm, 1.5 * mm, 4.8 * mm, 10), { x: sx * 8 * mm, z: sz * 8 * mm, y: y - 3 * mm }));
+      }
+    }
+  });
+  // composants : MOSFET de l'ESC, condensateur de bus, gyro, connecteurs
+  for (let i = 0; i < 4; i++) {
+    const a = (i * 90 + 45) * RAD;
+    comps.push(place(new THREE.BoxGeometry(5 * mm, 1.4 * mm, 4 * mm), {
+      x: Math.sin(a) * 6 * mm, z: Math.cos(a) * 6 * mm, y: bY[1] + 1.5 * mm, ry: a,
+    }));
+  }
+  comps.push(place(cyl(4 * mm, 4 * mm, 7 * mm, 14), { x: -6 * mm, z: 6 * mm, y: bY[1] - 5 * mm })); // condensateur
+  comps.push(place(new THREE.BoxGeometry(3 * mm, 1 * mm, 3 * mm), { y: bY[0] + 1.1 * mm }));        // gyro
+  comps.push(place(new THREE.BoxGeometry(8 * mm, 2.4 * mm, 2.6 * mm), { z: 7 * mm, y: bY[0] + 1.8 * mm })); // connecteur nappe
+  comps.push(place(new THREE.BoxGeometry(6 * mm, 2.2 * mm, 3 * mm), { x: 6 * mm, y: bY[2] - 1.6 * mm }));   // sortie antenne
+
+  return {
+    cellA: cells[0], cellB: cells[1],
+    caps: mergeGeometries(caps, false),
+    tabs: mergeGeometries(tabs, false),
+    pcb: mergeGeometries(boards, false),
+    comps: mergeGeometries(comps, false),
+    yc,
+  };
+}
+
+/**
+ * Module camera de la tete : capteur sur sa carte, barillet d'objectif et
+ * nappe vers le controleur de vol.
+ */
+export function buildCamera(D) {
+  const y = Y.cageTop + D.headLen * 0.45;
+  const g = [
+    place(new THREE.BoxGeometry(14 * mm, 14 * mm, 1.2 * mm), { y, z: D.headR - 13 * mm }),
+    place(cyl(5.6 * mm, 5.6 * mm, 7 * mm, 16), { y, z: D.headR - 9 * mm, rx: Math.PI / 2 }),
+    place(cyl(4.2 * mm, 4.2 * mm, 2 * mm, 16), { y, z: D.headR - 5 * mm, rx: Math.PI / 2 }),
+  ];
+  // nappe vers l'avionique
+  g.push(place(new THREE.BoxGeometry(8 * mm, 12 * mm, 0.4 * mm), { y: y - 9 * mm, z: D.headR - 13.6 * mm }));
+  return mergeGeometries(g, false);
 }
 
 /* ------------------------ tube lanceur 40 mm ------------------------ */
 export function buildTube(D) {
-  const ri = D.caliber / 2 - D.tubeWall, ro = D.caliber / 2;
+  const ri = D.caliber / 2, ro = D.caliber / 2 + D.tubeWall;
   const g = [cyl(ro, ro, D.tubeLen, 40, true), cyl(ri, ri, D.tubeLen, 40, true)];
   for (const s of [1, -1]) {
     const ring = new THREE.RingGeometry(ri, ro, 40);
@@ -459,6 +533,89 @@ export function buildTube(D) {
   }
   for (let i = 0; i < 3; i++) {
     g.push(place(cyl(ro * 1.06, ro * 1.06, 4 * mm, 40), { y: (i - 1) * D.tubeLen * 0.3 }));
+  }
+  return mergeGeometries(g, false);
+}
+
+/* ================================================================== *
+ * VISSERIE ET INSERTS
+ *
+ * Les pieces de structure sont imprimees (PA12 / PETG-CF). On n'y taraude
+ * pas : chaque percage recoit un INSERT LAITON A CHAUD, et la vis vient s'y
+ * visser. C'est la seule liaison demontable fiable sur une piece imprimee.
+ *
+ * Nomenclature retenue :
+ *   M2 x 6 tete cylindrique six pans creux  -> assemblages de structure
+ *   inserts laiton M2, OD 3,2, long. 4      -> dans la piece imprimee
+ *   M1,4 x 4                                -> fixation moteur (entraxe 6,6)
+ * ================================================================== */
+
+/** Vis a tete cylindrique, axe +Y, origine sous la tete. */
+function screw(d, len, headD, headH) {
+  return mergeGeometries([
+    place(cyl(d / 2, d / 2, len, 10), { y: -len / 2 }),
+    place(cyl(headD / 2, headD / 2, headH, 12), { y: headH / 2 }),
+    place(cyl(d * 0.32, d * 0.32, headH * 0.7, 6), { y: headH * 0.72 }),   // empreinte
+  ], false);
+}
+
+/** Insert laiton a chaud : fut moletee, deux gorges de retenue. */
+function insert(od, len) {
+  const g = [place(cyl(od / 2, od / 2, len, 12), { y: -len / 2 })];
+  for (const k of [0.3, 0.7]) {
+    g.push(place(cyl(od / 2 + 0.18 * mm, od / 2 + 0.18 * mm, 0.5 * mm, 12), { y: -len * k }));
+  }
+  return mergeGeometries(g, false);
+}
+
+/**
+ * Toute la visserie du drone, en deux geometries fusionnees (acier / laiton).
+ * Chaque vis est doublee de son insert dans la piece receveuse.
+ */
+export function buildFasteners(D) {
+  const M2 = { d: 2 * mm, len: 6 * mm, hd: 3.8 * mm, hh: 2 * mm, od: 3.2 * mm, il: 4 * mm };
+  const sc = [], ins = [];
+
+  // rangee de vis sur un cercle de percage
+  const ring = (n, r, y, dir, a0 = 0) => {
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (i / n) * Math.PI * 2;
+      const x = Math.sin(a) * r, z = Math.cos(a) * r;
+      const flip = dir < 0 ? Math.PI : 0;
+      sc.push(place(screw(M2.d, M2.len, M2.hd, M2.hh), { x, y, z, rx: flip }));
+      ins.push(place(insert(M2.od, M2.il), { x, y: y - dir * (M2.len - M2.il + 0.5 * mm), z, rx: flip }));
+    }
+  };
+
+  ring(3, 14 * mm, Y.cageTop + 2.2 * mm, 1, 0.5);          // tete -> cloison haute
+  ring(3, 14 * mm, Y.cageBot - 2.2 * mm, -1, 0.5);         // soute -> cloison basse
+  ring(3, 15 * mm, Y.bayBot - 2.0 * mm, -1, 0.9);          // ogive -> soute
+  // Carenage : vis dans une patte rentrante, et sur l'axe des PANNEAUX (0/90/
+  // 180/270) et non des bras (45/135/...). A r = 16,5 la tete reste sous la
+  // peau, et il subsiste 5,9° de garde angulaire avec le train rotor replie.
+  ring(4, 16.5 * mm, Y.cageTop - 3.6 * mm, 1, 0);
+  ring(4, 16.5 * mm, Y.cageBot + 3.6 * mm, -1, 0);
+
+  // moyeu -> epine : quatre vis RADIALES au travers des pans de la couronne
+  for (let i = 0; i < 4; i++) {
+    const a = (i * 90) * RAD;
+    const r = D.bodyR + 2.4 * mm;
+    const m = new THREE.Matrix4().makeRotationY(a)
+      .multiply(new THREE.Matrix4().makeTranslation(0, D.hingeY, r))
+      .multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    sc.push(place(screw(M2.d, 5 * mm, M2.hd, M2.hh), {}).applyMatrix4(m));
+    ins.push(place(insert(M2.od, 3.5 * mm), { y: -1.6 * mm }).applyMatrix4(m));
+  }
+  return { screws: mergeGeometries(sc, false), inserts: mergeGeometries(ins, false) };
+}
+
+/** Vis moteur M1,4 x 4, entraxe 6,6 — dans le repere du bras. */
+export function buildMotorScrews(D) {
+  const g = [];
+  for (const s of [1, -1]) {
+    g.push(place(screw(1.4 * mm, 4 * mm, 2.6 * mm, 1.4 * mm), {
+      x: s * 3.3 * mm, y: D.motorOff - D.motorH / 2 - 1.4 * mm, z: D.armLen - D.armR, rx: Math.PI,
+    }));
   }
   return mergeGeometries(g, false);
 }

@@ -78,8 +78,9 @@ n'est remonté.
 
 ## Architecture mécanique retenue
 
-La contrainte dimensionnante est simple : **tout doit tenir dans un rayon
-intérieur de 17,8 mm** (tube Ø 40 mm, paroi 2,2 mm). Elle impose la disposition
+La contrainte dimensionnante est simple : **tout doit tenir dans l'alésage de
+40 mm**, soit un rayon utile de 20 mm — le calibre est le diamètre du fût, la
+paroi du tube est à l'extérieur. Elle impose la disposition
 suivante, exprimée dans le repère du drone (origine au centre de l'épine) :
 
 ```
@@ -292,6 +293,44 @@ pale de 0,35 g, cg à 25 mm     F = m·ω²·r
 
 Repliées, les deux pales sont parallèles et rangées vers l'axe d'articulation :
 c'est ce qui permet au train bras + rotor de tenir dans la longueur du bras.
+
+## Fabrication
+
+Le modèle distingue ce qui s'imprime de ce qui s'achète, et la nomenclature
+complète est affichée dans le panneau.
+
+**Sur pièce imprimée, on ne taraude pas.** Chaque perçage de structure reçoit un
+**insert laiton posé à chaud** (M2, OD 3,2 × 4) et la vis vient s'y visser :
+c'est la seule liaison démontable fiable en PA12 ou PETG-CF. Les inserts et les
+21 vis M2 × 6 sont modélisés à leur emplacement réel — tête, soute, module
+avant, moyeu, carénage — ainsi que les 8 vis moteur M1,4 × 4 à l'entraxe 6,6.
+
+Épaisseur de paroi minimale retenue : **1,4 mm**, soit quatre cordons à 0,4.
+
+Le cercle de perçage du carénage est à r = 16,5 mm, sur l'axe des **panneaux**
+et non des bras : la tête reste ainsi sous la peau, et il subsiste 5,9° de garde
+angulaire avec le train rotor replié.
+
+### Contrôle de jeu
+
+Le modèle expose `window.__xr`, ce qui permet de mesurer les jeux sur la
+géométrie **telle qu'elle est rendue** plutôt que de refaire les calculs à côté.
+Le rayon d'encombrement de chaque pièce, en configuration stockée :
+
+| Pièce | Rayon | |
+|---|---|---|
+| Carénage, module avant | 19,40 mm | peau du fuselage |
+| Tête optronique | 18,94 mm | optique encastrée |
+| Pale repliée | 18,58 mm | 1,4 mm de garde |
+| Train rotor | 18,60 mm | sous le carénage |
+| Vis de carénage | 18,40 mm | tête sous la peau |
+
+Tout est sous les 20 mm de l'alésage. C'est ce contrôle qui a révélé deux
+erreurs de fond corrigées depuis : le tube modélisé à Ø 40 **extérieur** (donc
+un alésage de 35,6 dans lequel le fuselage ne rentrait pas), et un angle de
+repos de bras calculé sur le rayon du fuseau alors que la pièce contraignante
+est le train rotor en bout — bras replié, sa hauteur devient radiale, et le
+rotor sortait de 5 mm hors du calibre.
 
 ## Optimisations
 

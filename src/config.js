@@ -22,6 +22,8 @@ export const MM = 0.001;
 
 export const D = {
   // --- enveloppe de lancement : calibre 40 mm ---
+  // Le calibre est l'ALESAGE : un projectile de 40 mm remplit un fut de 40 mm,
+  // la paroi du tube est a l'exterieur. Rayon utile = 20 mm.
   caliber: 40 * MM,
   tubeLen: 205 * MM,
   tubeWall: 2.2 * MM,
@@ -62,8 +64,9 @@ export const D = {
 
   // --- propulsion ---
   motorR: 5.5 * MM,
-  motorH: 9 * MM,
-  motorOff: 0.5 * MM,     // decalage du moteur au-dessus de l'axe du bras
+  motorH: 8 * MM,
+  motorOff: 0,            // moteur strictement dans l'axe du bras : replie,
+                          // tout decalage vertical devient de l'encombrement radial
   hubR: 3.4 * MM,
   bladeCount: 2,
   bladeLen: 41 * MM,
@@ -163,7 +166,13 @@ export const Y = {
  *   a 20 000 tr/min      F ≈ 38 N  -> plaquage rigide contre la butee du moyeu.
  */
 export const MECH = {
-  shroudRi: 16 * MM,      // face interne du carenage : butee du bras replie
+  shroudRi: 18 * MM,      // face interne du carenage : butee du bras replie
+  // Encombrement radial du train rotor replie. Il vaut exactement l'anneau
+  // disponible (shroudRi - hingeR), ce qui amene l'angle de repos a 90° : le
+  // bras se range strictement a plat contre le fuselage, comme il se doit pour
+  // un projectile de tube. Toute valeur inferieure laisserait le bras s'ouvrir
+  // dans le tube et sortirait le rotor du calibre.
+  stackH: 9.5 * MM,
 
   // --- moyeu cruciforme et articulation ---
   cheekR: 5.0 * MM,       // joue de chape
@@ -222,6 +231,30 @@ export const MECH_SPECS = [
 ];
 
 /** Vue eclatee : direction (x,y,z) + amplitude par sous-ensemble. */
+/**
+ * Nomenclature. Elle distingue ce qui s'imprime de ce qui s'achete : sur une
+ * piece imprimee on ne taraude pas, chaque percage recoit un insert laiton a
+ * chaud. Epaisseur de paroi minimale retenue : 1,4 mm, soit 4 cordons a 0,4.
+ */
+export const BOM = [
+  ['Imprimé PA12 / PETG-CF', 'épine + 4 panneaux de carénage, 2 cloisons, soute, tête, module avant, guide de verrou'],
+  ['Usiné alu 7075', 'moyeu cruciforme à 4 chapes, coulisseau, 4 bielles'],
+  ['Tube carbone Ø 6 × 1', '4 bras, coupés à 78 mm'],
+  ['Carbone stratifié', '8 pales bipales repliables'],
+  ['Vis M2 × 6 CHC', '21 — structure'],
+  ['Inserts laiton M2', '21 — OD 3,2 × 4, posés à chaud'],
+  ['Vis M1,4 × 4', '8 — fixation moteurs, entraxe 6,6'],
+  ['Axes inox Ø 1,5', '4 articulations + 8 circlips'],
+  ['Vis épaulées Ø 1,5', '8 — charnières de pales'],
+  ['Ressorts de torsion', '4 — Ø fil 0,7 · Ø 5 · 6 spires'],
+  ['Ressort de verrou', '1 — compression Ø fil 0,3'],
+  ['Élastomère', '4 pastilles de butée Ø 3,2'],
+  ['Moteurs', '4 — brushless Ø 11 × 8'],
+  ['Avionique', 'contrôleur 20 × 20, ESC 4-en-1, émetteur vidéo'],
+  ['Optronique', 'module caméra 14 × 14 + objectif'],
+  ['Énergie', '2 × Li-ion 13 × 42 en 2S, languettes nickel, BMS'],
+];
+
 export const EXPLODE = {
   head:   [0, 1, 0, 0.075],
   bay:    [0, -1, 0, 0.07],

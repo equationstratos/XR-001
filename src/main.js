@@ -29,6 +29,11 @@ viewer.updaters.push((dt) => {
   panel.tick(dt);
 });
 
+// Accroche de diagnostic : permet de mesurer les jeux reels sur la geometrie
+// telle qu'elle est rendue (rayon d'encombrement, interferences), plutot que
+// de refaire les calculs a cote du modele.
+window.__xr = { viewer, drone, deploy, labels, mechLabels, mech };
+
 viewer.start();
 // Le garde-fou de index.html attend ce drapeau : tant qu'il est absent, il
 // affiche un diagnostic plutot que de laisser tourner le rond de chargement.

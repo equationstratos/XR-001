@@ -78,6 +78,7 @@ export function createMaterials(clippingPlanes) {
     brass: new THREE.MeshStandardMaterial({
       ...base, color: 0xb98b3c, roughness: 0.28, metalness: 1,
     }),
+    steel: new THREE.MeshStandardMaterial({ ...base, color: 0x5b6168, roughness: 0.33, metalness: 1 }),
     spring: new THREE.MeshStandardMaterial({ ...base, color: 0xc9ccd0, roughness: 0.24, metalness: 1 }),
     copper: new THREE.MeshStandardMaterial({ ...base, color: 0xa8632c, roughness: 0.35, metalness: 1 }),
     pcb: new THREE.MeshStandardMaterial({ ...base, color: 0x123b2b, roughness: 0.55, metalness: 0.1 }),
