@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { D, Y, MECH, EXPLODE } from '../config.js';
 import {
   buildChassis, buildBay, buildShroud, buildCollar, buildLink, buildShaft, buildRunner,
-  buildDriveSpring, buildDetent, buildHead, buildNose, buildArm, buildMotor,
+  buildTorsionSpring, buildDetent, buildHead, buildNose, buildArm, buildMotor,
   buildBlade, buildHub, buildInternals, buildTube,
 } from './parts.js';
 
@@ -98,7 +98,8 @@ export class Drone {
     const hubGeo = buildHub(D);
     const bladeGeo = buildBlade(D);
     const linkGeo = buildLink();
-    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, linkGeo);
+    const coilGeo = buildTorsionSpring();
+    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, linkGeo, coilGeo);
 
     for (let i = 0; i < D.armCount; i++) {
       const az = (D.armSweep + i * (360 / D.armCount)) * RAD;
@@ -121,6 +122,13 @@ export class Drone {
       const link = new THREE.Group();
       yaw.add(link);
       this._mesh(linkGeo, M.alu, link, false);
+
+      // MOTEUR : ressort de torsion sur l'axe d'articulation, donc en haut du
+      // drone. Sa spire tourne de la moitie de l'angle du bras.
+      const coil = new THREE.Group();
+      coil.position.z = D.hingeR;
+      yaw.add(coil);
+      this._mesh(coilGeo, M.spring, coil, false);
 
       // pastille elastomere de butee
       const bump = this._mesh(
@@ -151,31 +159,22 @@ export class Drone {
         blades.push(pivot);
       }
       this.arms.push({
-        yaw, hinge, motor, hub, blades, link, az,
+        yaw, hinge, motor, hub, blades, link, coil, az,
         restZ: hinge.position.z,
         ta: 0,
       });
     }
 
-    // --- train de commande, commun aux quatre bras --------------------
-    // Montage parapluie : le mat est FIXE, le coulisseau glisse dessus. C'est
-    // lui qui rend les bras solidaires — une seule position axiale definit les
-    // quatre angles d'ouverture.
+    // --- synchroniseur, commun aux quatre bras -------------------------
+    // Montage parapluie : le mat est FIXE, le coulisseau glisse dessus. Il ne
+    // motorise pas — ce sont les ressorts de torsion des axes qui le font — il
+    // rend les bras solidaires et porte le verrou.
     this.shaft = this._mesh(buildShaft(D), M.aluDark, this.root, false);
     this.shaft.name = 'shaft';
 
     this.slider = new THREE.Group();
     this.root.add(this.slider);
     this._mesh(buildRunner(D), M.alu, this.slider, false);
-
-    // ressort de compression : siege fixe en bas de l'epine, il pousse le
-    // coulisseau vers le haut. Mis a l'echelle en Y a sa longueur courante —
-    // un ressort qui se detend, c'est un pas qui augmente a diametre constant.
-    this.spring = new THREE.Group();
-    this.spring.position.y = MECH.seatY;
-    this.root.add(this.spring);
-    const sp = this._mesh(buildDriveSpring(), M.spring, this.spring, false);
-    sp.position.y = 0.5;                       // helice unitaire ancree au siege
 
     // verrou : cran a ressort qui tombe derriere le coulisseau en haut de course
     const det = buildDetent();
@@ -203,7 +202,7 @@ export class Drone {
       { text: 'Butée + pastille élastomère', obj: a0.yaw, pos: new THREE.Vector3(0, 0.012, D.hingeR + 0.002) },
       { text: 'Attache de bielle · 30 mm de l\'axe', obj: a0.hinge, pos: new THREE.Vector3(0, 0.006, MECH.crank) },
       { text: 'Bielle · entraxe 38 mm', obj: a0.link, pos: new THREE.Vector3(0, -0.005, MECH.link / 2) },
-      { text: 'Ressort de commande · 5,1 N', obj: this.spring, pos: new THREE.Vector3(0, 0.4, 0.006) },
+      { text: 'Ressort de torsion · 26 mN·m', obj: a0.yaw, pos: new THREE.Vector3(MECH.coilX + 0.004, 0.006, D.hingeR) },
       { text: 'Coulisseau + étoile', obj: this.slider, pos: new THREE.Vector3(0, 0.002, -0.008) },
       { text: 'Mât fixe', obj: this.root, pos: new THREE.Vector3(0.006, 0.010, 0) },
       { text: 'Verrou de coulisseau', obj: this.detent, pos: new THREE.Vector3(0.011, 0, 0) },

@@ -51,16 +51,6 @@ export const S_DEP = sliderOffset(TH_DEP);
 export const STROKE = S_REST - S_DEP;
 
 /**
- * Longueur courante du ressort de compression. Le siege est FIXE en bas de
- * l'epine, le coulisseau monte : le ressort se detend en ouvrant, il est donc
- * au maximum de sa compression bras replies — la ou le bras de levier de la
- * tringlerie est le plus faible.
- */
-export function springLength(theta) {
-  return D.hingeY + sliderOffset(theta) - MECH.seatY;
-}
-
-/**
  * Pose d'une bielle. Les deux manetons sont dans le plan x = 0 du repere
  * de bras : une seule rotation autour de X suffit, pas de quaternion.
  * Renvoie l'origine (extremite cote poussoir) et l'angle a appliquer.

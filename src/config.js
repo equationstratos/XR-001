@@ -129,16 +129,33 @@ export const Y = {
  * fort quand il est comprime, c'est-a-dire au repliage, la ou le bras de
  * levier est le plus faible.
  *
+ * OU EST LE MOTEUR. Le coulisseau ne motorise plus : il SYNCHRONISE et il
+ * verrouille. La force vient de quatre ressorts de torsion montes sur les axes
+ * d'articulation eux-memes, donc en haut du drone, juste sous la tete.
+ * Raison geometrique : le point d'attache etant porte par le bras, sa cote
+ * axiale cv = -a·sin θ croit forcement quand le bras s'ouvre, et les deux
+ * branches de la solution font monter le coulisseau. Un ressort qui pousserait
+ * par le haut refermerait donc les bras — aucune configuration ne l'evite.
+ * Deplacer la fonction motrice sur les axes est la seule facon de mettre le
+ * ressort en haut, et elle a deux avantages propres :
+ *   - la masse du ressort remonte au voisinage du plan rotor ;
+ *   - la tringlerie ne transmet plus que l'ecart entre bras, pas la puissance,
+ *     donc bielles et manetons travaillent beaucoup moins.
+ *
  * Dimensionnement (4 bras, I = 5,4e-5 kg·m² chacun, ouverture 90° en 80 ms) :
- *     energie a fournir     4 × ½·I·ω²        ≈ 165 mJ
- *     vitesse finale        ω = √(2E/4I)      ≈ 39 rad/s
- *     ressort Ø fil 0,5 · Ø moyen 6 · 36 spires, libre 84 mm
- *       raideur  k = G·d⁴/(8·D³·n)            ≈ 0,08 N/mm
- *       effort replie   (fleche 63,3 mm)      ≈ 5,1 N
- *       precharge deploye (fleche 7,7 mm)     ≈ 0,6 N
- *       energie restituee ½k(63,3² - 7,7²)    ≈ 158 mJ
- *       longueur solide 36 × 0,5 = 18 mm < 20,7 mm comprime -> ne talonne pas
+ *     acceleration          α = 2θ/t²         ≈ 490 rad/s²
+ *     couple par bras       C = I·α           ≈ 26 mN·m
+ *     energie totale        4 × ½·I·ω²        ≈ 165 mJ  (41 mJ par bras)
+ *     ressort de torsion Ø fil 0,7 · Ø moyen 5 · 6 spires, sur l'axe
+ *       contrainte  σ = Kb·32·C/(π·d³)        ≈ 862 MPa
+ *       resistance du fil a ressort Ø0,7      ≈ 2330 MPa
+ *       taux de charge au stockage            ≈ 37 %  -> pas de relaxation
  *     energie encaissee par butee de bras     ≈ 41 mJ -> pastille elastomere
+ *
+ * Le taux de charge est le vrai critere de tenue au stockage prolonge : en
+ * restant sous ~40 % de la resistance du fil, un ressort peut demeurer arme
+ * indefiniment sans perdre de couple. C'est ce qui repond a la crainte du
+ * ressort qui se detend, bien plus que sa position dans le drone.
  *
  * Pales : charnieres a vis epaulee Ø1,5 deportees de hubR de part et d'autre
  * du moyeu. Deploiement centrifuge, aucun ressort :
@@ -169,18 +186,21 @@ export const MECH = {
   linkGap: 2.8 * MM,      // entraxe interieur des deux flasques
   linkW: 2.8 * MM,        // largeur des flasques
 
-  // --- poussoir ---
-  rodR: 1.7 * MM,         // tige de commande Ø3,4
-  rodLen: 92 * MM,
-  spiderT: 2.2 * MM,      // epaisseur de l'etoile d'entrainement
-  seatY: -44 * MM,        // siege fixe du ressort, en bas de l'epine
-  springR: 3.0 * MM,      // rayon moyen du ressort (Ø moyen 6)
-  springWire: 0.5 * MM,
-  springTurns: 36,
-  springFree: 84 * MM,    // longueur libre
-  detentR: 0.9 * MM,      // cran de verrouillage du poussoir
+  // --- coulisseau (synchroniseur, plus moteur) ---
+  rodR: 1.7 * MM,         // mat fixe Ø3,4
+  spiderT: 2.2 * MM,      // epaisseur de l'etoile
+  shaftBot: -44 * MM,     // pied du mat sur la cloison basse
+  detentR: 0.9 * MM,      // cran de verrouillage du coulisseau
   detentTravel: 1.5 * MM,
-  detentY: 30 * MM,       // le cran bloque le poussoir en haut de course
+  detentY: 30 * MM,       // le cran bloque le coulisseau en haut de course
+
+  // --- ressorts de torsion, sur les axes d'articulation (en haut) ---
+  coilR: 2.5 * MM,        // rayon moyen d'enroulement (Ø moyen 5)
+  wire: 0.7 * MM,         // fil du ressort de torsion
+  coilTurns: 6,
+  coilLen: 5.2 * MM,
+  coilX: 5.6 * MM,        // position du ressort sur l'axe, en porte-a-faux
+  legLen: 8 * MM,         // branches radiales
 
   // --- pales ---
   screwR: 0.75 * MM,      // vis epaulee de charniere de pale
@@ -192,10 +212,11 @@ export const MECH_SPECS = [
   ['Point d\'attache sur le bras', '30 mm de l\'axe'],
   ['Course du coulisseau', '55,6 mm'],
   ['Angle de transmission', '14° à 89° — max à mi-course'],
-  ['Ressort de commande', 'Ø fil 0,5 · Ø 6 · 36 sp. · 0,08 N/mm'],
-  ['Effort replié → déployé', '5,1 N → 0,6 N de précharge'],
-  ['Énergie restituée', '158 mJ · ouverture en ≈ 80 ms'],
-  ['Synchronisation', 'mécanique — 4 bras liés'],
+  ['Moteur', '4 ressorts de torsion sur les axes'],
+  ['Ressort', 'Ø fil 0,7 · Ø 5 · 6 sp. · 26 mN·m'],
+  ['Charge au stockage', '37 % de la résistance du fil'],
+  ['Énergie fournie', '165 mJ · ouverture en ≈ 80 ms'],
+  ['Rôle du coulisseau', 'synchroniser et verrouiller'],
   ['Verrouillage', 'cran sur coulisseau, irréversible'],
   ['Charnière de pale', 'vis épaulée Ø 1,5 · centrifuge'],
 ];

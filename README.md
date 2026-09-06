@@ -189,9 +189,27 @@ sans rejouer le tir à chaque fois.
 | Attache de bielle | collier serré sur le fuseau, **30 mm** de l'axe d'articulation |
 | Biellette jumelée | deux flasques 1,0 mm, entraxe **38 mm** — 0,49 × la longueur de bras (× 4) |
 | Coulisseau | bague glissant sur le mât, étoile à quatre manetons à r = 3 mm |
-| Ressort de commande | compression Ø fil 0,5 · Ø moyen 6 · 36 spires, libre 84 mm |
+| **Ressorts moteurs** | **4 × torsion Ø fil 0,7 · Ø moyen 5 · 6 spires, sur les axes d'articulation** |
 | Butée | épaulement usiné dans la chape + pastille élastomère |
 | Verrou | cran à ressort tombant derrière le coulisseau en haut de course |
+
+### Où est le moteur, et pourquoi
+
+Le coulisseau **ne motorise pas** : il synchronise et il verrouille. La force
+vient de quatre ressorts de torsion montés sur les axes d'articulation
+eux-mêmes, donc **en haut du drone**, juste sous la tête.
+
+Ce n'est pas un choix libre. Le point d'attache étant porté par le bras, sa cote
+axiale `cv = −a·sin θ` **croît nécessairement** quand le bras s'ouvre, et les
+deux branches de la solution font monter le coulisseau — un balayage exhaustif
+ne trouve aucune configuration où il descende. Un ressort de compression placé
+en haut refermerait donc les bras au lieu de les ouvrir. Déplacer la fonction
+motrice sur les axes est la seule façon de mettre le ressort en haut, et elle a
+deux avantages propres :
+
+* la masse du ressort remonte au voisinage du plan rotor ;
+* la tringlerie ne transmet plus que l'écart entre bras, pas la puissance —
+  bielles et manetons travaillent donc beaucoup moins.
 
 Trois conséquences qui justifient le changement d'architecture :
 
@@ -238,20 +256,22 @@ est le plus faible.
 
 ```
 inertie d'un bras autour de l'axe   I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
-énergie à fournir (4 bras)          4 × ½·I·ω²                 ≈ 165 mJ
-vitesse finale                      ω = √(2E/4I)               ≈ 39 rad/s
-ouverture correspondante            t = 2θ/ω                   ≈ 81 ms
-raideur du ressort                  k = G·d⁴/(8·D³·n)          ≈ 0,08 N/mm
-effort bras replié (flèche 63,3)    F = k·x                    ≈ 5,1 N
-précharge bras déployé (flèche 7,7)                            ≈ 0,6 N
-énergie restituée                   ½k(63,3² − 7,7²)           ≈ 158 mJ
-longueur solide 36 × 0,5 = 18 mm < 20,7 mm comprimé  → ne talonne pas
+accélération pour 90° en 80 ms      α = 2θ/t²                  ≈ 490 rad/s²
+couple par bras                     C = I·α                    ≈ 26 mN·m
+énergie totale (4 bras)             4 × ½·I·ω²                 ≈ 165 mJ
+contrainte dans le fil Ø 0,7        σ = Kb·32·C/(π·d³)         ≈ 862 MPa
+résistance du fil à ressort Ø 0,7                              ≈ 2330 MPa
+taux de charge au stockage          σ/Rm                       ≈ 37 %
 énergie encaissée par butée         E = ½·I·ω²                 ≈ 41 mJ → élastomère
 ```
 
-Le ressort est volontairement souple : sur 55,6 mm de course, une raideur
-ordinaire délivrerait plusieurs fois l'énergie nécessaire et les bras
-arriveraient en butée à une vitesse inutilement élevée.
+**Sur la tenue au stockage prolongé.** Un ressort qui entraîne un mécanisme est
+forcément armé tant que le mécanisme est fermé — sa position dans le drone n'y
+change rien. Ce qui décide de sa relaxation, c'est son **taux de charge** : en
+restant sous ~40 % de la résistance du fil, un ressort peut demeurer armé
+indéfiniment sans perdre de couple. À 37 %, celui-ci est dans le domaine sûr.
+Pour un stockage long en température, un fil inox 302 ou un Inconel X-750
+abaisse encore la relaxation, au prix d'un module légèrement inférieur.
 
 Le bras replié n'est pas à 90° : le ressort le pousse en permanence contre la
 face interne du carénage, donc il repose **ouvert de 3,3°** —
