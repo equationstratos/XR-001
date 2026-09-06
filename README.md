@@ -338,6 +338,27 @@ repos de bras calculé sur le rayon du fuseau alors que la pièce contraignante
 est le train rotor en bout — bras replié, sa hauteur devient radiale, et le
 rotor sortait de 5 mm hors du calibre.
 
+### Contrôle d'interférence sur toute la séquence
+
+Le jeu au repos ne suffit pas : il fallait vérifier qu'aucune pièce ne traverse
+la paroi **pendant** le tir. Un second contrôle balaie la phase de 0 à 1, place
+chaque sommet des pièces mobiles dans le repère du tube et mesure la pénétration
+dans le fût. Il a montré que ce n'étaient pas les hélices qui dépassaient : le
+**lanceur venait les chercher**. Il basculait autour de son centre, sa bouche
+balayait donc 13 mm latéralement et venait percuter le projectile qui venait
+d'en sortir — jusqu'à 29 mm de pénétration sur l'ogive.
+
+Deux corrections :
+
+* l'origine du groupe tube est désormais la **bouche** et non le centre, si bien
+  que le lanceur pivote autour du point que le projectile vient de quitter, qui
+  reste immobile ;
+* le basculement est conditionné à la sortie **intégrale** du projectile — on
+  mesure le dégagement de la pointe arrière de l'ogive, pas celui de l'axe
+  d'articulation ; tant que la queue est dans le fût, le lanceur ne bouge pas.
+
+Résultat mesuré : aucune interférence sur l'ensemble de la séquence.
+
 ## Optimisations
 
 * **Rendu à la demande** — la boucle ne dessine que si la scène est marquée

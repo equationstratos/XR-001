@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { D, SEQ, LAUNCH, MECH, PHASES } from '../config.js';
+import { D, Y, SEQ, LAUNCH, MECH, PHASES } from '../config.js';
 import {
   TH_REST, TH_DEP, sliderOffset, springLength, linkPose, transmission, S_REST,
 } from '../model/linkage.js';
@@ -159,12 +159,17 @@ export class Deployment {
     tube.position.y = drone._rest.get(tube).y - travel * L.drop;
 
     // --- 2. degagement de bouche, exprime en longueurs de bras ---------
-    const muzzle = tube.position.y + D.tubeLen / 2;
+    // L'origine du groupe tube EST la bouche (il bascule autour d'elle).
+    const muzzle = tube.position.y;
     const clear = (body.position.y + D.hingeY - muzzle) / D.armLen;
     this.clear = clear;
 
-    // le lanceur ne bascule qu'une fois le projectile hors d'atteinte
-    const away = smooth(clamp01((clear - 1.2) / 1.3));
+    // Le lanceur ne bascule qu'une fois le projectile INTEGRALEMENT sorti :
+    // tant que la queue de l'ogive est dans le fut, tout basculement ferait
+    // rentrer la paroi dans le projectile. On mesure donc le degagement de la
+    // pointe arriere, pas celui de l'axe d'articulation.
+    const tailClear = body.position.y + Y.noseTip - muzzle;
+    const away = smooth(clamp01(tailClear / 0.03));
     tube.rotation.z = away * 0.13;
     tube.rotation.x = -away * 0.06;
 

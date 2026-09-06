@@ -227,11 +227,16 @@ export class Drone {
   }
 
   _buildLauncher() {
+    // L'origine du groupe est la BOUCHE, pas le centre du tube : le lanceur
+    // bascule donc autour de sa bouche, qui reste immobile la ou le projectile
+    // vient de la quitter. Pivoter autour du centre faisait balayer 13 mm a la
+    // bouche, qui venait alors percuter l'ogive et les bras deja sortis.
     this.tube = new THREE.Group();
     const mesh = this._mesh(buildTube(D), this.M.olive, this.tube);
     mesh.name = 'tube';
+    mesh.position.y = -D.tubeLen / 2;
     // le drone est centre dans le tube en configuration stockee
-    this.tube.position.y = (Y.headTop + Y.noseTip) / 2;
+    this.tube.position.y = (Y.headTop + Y.noseTip) / 2 + D.tubeLen / 2;
   }
 
   _captureRestPositions() {
