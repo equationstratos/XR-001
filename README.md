@@ -28,7 +28,7 @@ npm run preview      # sert dist/ sur le port 4173
 ## Mise en ligne
 
 **`index.html`, à la racine, est une page autonome générée** : un fichier
-unique de 548 ko contenant le HTML, le CSS et tout le JavaScript en ligne,
+unique de 552 ko contenant le HTML, le CSS et tout le JavaScript en ligne,
 three.js compris. Aucune dépendance, aucun serveur, aucun build côté
 hébergeur. Quelle que soit la façon dont vous publiez, ça fonctionne :
 
@@ -84,13 +84,13 @@ paroi du tube est à l'extérieur. Elle impose la disposition
 suivante, exprimée dans le repère du drone (origine au centre de l'épine) :
 
 ```
- y = +72 mm  ┌────────────┐  tête optronique Ø 36 (optique + antenne)
+ y = +72 mm  ┌────────────┐  tête optronique Ø 36 (optique encastrée)
  y = +48 mm  ├────────────┤  cloison haute — axes d'articulation à y = +44
              │            │
              │  épine +   │  ZONE DE REPLIAGE
              │  carénage  │  · âme centrale Ø 10 seulement
-             │            │  · anneau r = 5,5 → 15,5 mm réservé aux 4 bras
- y = −48 mm  ├────────────┤    repliés et à leurs moteurs
+             │            │  · anneau r = 5,5 → 18 mm réservé aux 4 bras
+ y = −48 mm  ├────────────┤    repliés et à leurs rotors
              │   soute    │  2 éléments Li-ion + carte avionique / ESC
  y = −96 mm  ├────────────┤
              │   ogive    │  module de charge utile générique (inerte)
@@ -103,17 +103,19 @@ rotors **Ø 89 mm**.
 Trois choix conditionnent la faisabilité du repliage — ils sont vérifiables
 directement sur le modèle :
 
-1. **Le moteur est aligné sur l'axe du bras** (décalage de 0,5 mm seulement).
-   Une fois le bras replié, l'axe moteur devient radial ; tout décalage
-   vertical se transforme en encombrement radial. Bilan : rayon 9 + 5,5 =
-   **14,5 mm** < 17,8 mm.
+1. **Le moteur est strictement dans l'axe du bras.** Une fois le bras replié,
+   la hauteur du train rotor devient RADIALE : chaque millimètre au-dessus de
+   l'axe coûte un millimètre de rayon. C'est cette hauteur — et non le rayon du
+   fuseau — qui fixe la butée de repos, résolue par
+   `stackH·sin θ + L·cos θ = r_carénage − r_axe`. Le bras se range donc
+   strictement à plat, et le rotor culmine à **18,60 mm** < 20.
 2. **Les pales se replient *vers* l'axe d'articulation**, le long du bras, et
    non vers l'extérieur. La longueur repliée du sous-ensemble vaut donc la
    longueur du bras (78 mm) et non bras + pale (119 mm) : le train replié
    s'arrête à y = −34 mm, au-dessus de la soute.
 3. **Le carénage est fendu** : 4 panneaux de 50° séparés par 4 fentes de 40°,
-   rayons 16 → 17,4 mm. Il redonne au fuselage son diamètre plein tout en
-   laissant sortir les bras *et* les moteurs (demi-angle 20,1° au rayon 16 mm).
+   rayons 18 → 19,4 mm. Il redonne au fuselage son diamètre plein tout en
+   laissant sortir les bras *et* les rotors.
 
 Ces valeurs vivent toutes dans [`src/config.js`](src/config.js) : modifier une
 cote régénère la géométrie complète et met à jour la fiche technique du panneau.
@@ -136,10 +138,10 @@ clear = ( y_axe_articulation − y_bouche ) / longueur_de_bras
 
 La géométrie impose une ouverture **claquante**, pas progressive :
 
-* Un point du bras situé à la distance `s` de l'axe passe au rayon
-  `r = r_axe + s·sin θ + r_bras`. Tant qu'il est dans le tube, il faut
-  `r ≤ 16 mm`, d'où `θ ≤ asin((16 − 8,5 − 3) / 78) ≈ **3,3°**`. Un bras encore
-  engagé est donc mécaniquement bloqué contre le fût.
+* Le train rotor, en bout de bras, passe au rayon
+  `r = r_axe + stackH·sin θ + L·cos θ`. Tant que le bras est engagé il faut
+  `r ≤ 18 mm`, ce qui ne laisse **aucune ouverture** : le bras est plaqué à plat
+  contre le fuselage.
 * Le bras ne peut atteindre un angle utile qu'une fois **intégralement sorti**,
   c'est-à-dire `clear ≥ 1`. Le ressort le déploie alors d'un coup, avec un
   léger dépassement avant verrouillage en butée.
@@ -152,7 +154,7 @@ ne change rien à ce couplage.
 | Phase | Déclencheur | Effet |
 |---|---|---|
 | Tir | `t` 0 → 0,62 | Vitesse quasi constante (sur 20 cm la décélération gravitaire est négligeable), roulis de stabilisation acquis dans le tube puis amorti |
-| Libération des bras | `clear` ≥ 1,00 | Butée mécanique à 3,3° tant que `clear < 1` |
+| Libération des bras | `clear` ≥ 1,00 | Bras plaqué à plat tant que `clear < 1` |
 | Ouverture des bras | `clear` 1,00 → 1,72 | 4 × 90° simultanés — la tringlerie interdit tout décalage entre bras |
 | Dépliage des pales | `clear` 1,80 → 2,45 | 8 pales, 90° chacune |
 | Montée en régime | `t` 0,58 → 0,90 | Rampe de régime puis flottement de tenue de vol |
@@ -274,10 +276,11 @@ indéfiniment sans perdre de couple. À 37 %, celui-ci est dans le domaine sûr.
 Pour un stockage long en température, un fil inox 302 ou un Inconel X-750
 abaisse encore la relaxation, au prix d'un module légèrement inférieur.
 
-Le bras replié n'est pas à 90° : le ressort le pousse en permanence contre la
-face interne du carénage, donc il repose **ouvert de 3,3°** —
-`sin θ = (16 − 8,5 − 3)/78`. C'est la seule ouverture possible tant qu'il est
-engagé, et c'est la valeur qu'affiche le panneau en configuration stockée.
+Le bras replié se range **strictement à plat** : le ressort le pousse en
+permanence, mais le train rotor bute contre la face interne du carénage. La
+butée est résolue sur cette pièce — `stackH·sin θ + L·cos θ = r_carénage −
+r_axe` — et non sur le rayon du fuseau, qui donnait 3,3° d'ouverture et sortait
+le rotor de 5 mm hors du calibre.
 
 ### Charnières de pales
 
@@ -387,4 +390,4 @@ scripts/build-single.mjs   génère docs/index.html (page autonome tout-en-un)
 * Mesures interactives : ajouter un `Raycaster` sur `drone.root` et coter entre
   deux points cliqués.
 * Étude d'encombrement : animer `D.armLen` / `D.bladeLen` et vérifier en direct
-  la contrainte de rayon 17,8 mm.
+  la contrainte d'alésage de 20 mm (`node scripts/…` ou `window.__xr`).
