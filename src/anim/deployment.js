@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { D, SEQ, LAUNCH, MECH, PHASES } from '../config.js';
+import {
+  TH_REST, TH_DEP, sliderOffset, springLength, linkPose, transmission, S_REST,
+} from '../model/linkage.js';
 
 const RAD = Math.PI / 180;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -25,14 +28,10 @@ const overshoot = (x) => {
  * L'etat est entierement deterministe (aucune integration), sauf la rotation
  * des rotors et le flottement de vol qui sont integres dans le temps.
  */
-/**
- * Angle de repos du bras replie. Le ressort le pousse en permanence : il vient
- * donc porter sur la face interne du carenage, legerement ouvert.
- *   sin θ_repos = (r_carenage − r_axe − r_bras) / L = (16 − 8,5 − 3) / 78
- * soit 3,3° — c'est la seule ouverture possible tant que le bras est engage.
- */
-const REST = Math.asin((MECH.shroudRi - D.hingeR - D.armR) / D.armLen);
-const FOLDED = Math.PI / 2 - REST;
+// Angle de repos du bras replie (il porte sur la face interne du carenage) et
+// angle en vol : tous deux definis dans le module de tringlerie, qui en derive
+// aussi les positions extremes du poussoir.
+const FOLDED = TH_REST;
 
 export class Deployment {
   constructor(drone) {
@@ -102,38 +101,43 @@ export class Deployment {
     body.rotation.y = roll * L.spinAxial * Math.PI * 2;
 
     // --- 3. ouverture des bras (asservie au degagement) ---------------
-    let armT = 0;
-    for (let i = 0; i < drone.arms.length; i++) {
-      const arm = drone.arms[i];
-      const order = i % 2;                                  // paires opposees
-      const c = (clear - L.armFree - order * L.armStagger) / L.armSpan;
-      const ta = overshoot(clamp01(c));
-      if (i === 0) armT = ta;
-      // butee mecanique tant que le bras est encore engage dans le tube
-      const angle = THREE.MathUtils.lerp(FOLDED, -D.armDihedral * RAD, ta);
+    // Les quatre bras sont attaques par le MEME poussoir : il n'y a donc plus
+    // qu'un seul angle, et aucun decalage entre paires n'est possible. C'est
+    // la propriete recherchee en adoptant la tringlerie.
+    const armT = overshoot(clamp01((clear - L.armFree) / L.armSpan));
+    const angle = THREE.MathUtils.lerp(FOLDED, TH_DEP, armT);
+    const tb = smooth(clamp01((clear - L.bladeStart) / L.bladeSpan));
+
+    for (const arm of drone.arms) {
       arm.hinge.rotation.x = angle;
+      arm.ta = armT;
 
-      // --- mecanisme ---
-      // le ressort de torsion est encastre d'un cote sur la chape, de l'autre
-      // sur le bras : sa spire tourne donc de la moitie de l'angle d'ouverture.
-      arm.coil.rotation.x = angle / 2;
-
-      // le talon efface le doigt de verrouillage en fin de course, puis le
-      // laisse ressortir derriere lui : le repliage devient impossible.
-      const push = smooth(clamp01((ta - 0.78) / 0.14)) * (1 - smooth(clamp01((ta - 0.94) / 0.055)));
-      arm.plunger.position.y = arm.restPlungerY - push * MECH.latchTravel;
-      arm.lspring.scale.y = 1 - 0.55 * push;
-      arm.ta = ta;
-      arm.locked = ta >= 0.99;
+      // Pose de la bielle : origine sur le maneton d'etoile, orientation
+      // donnee par la resolution en forme fermee. Sa longueur est donc
+      // exactement nominale a chaque image, jamais approchee.
+      const p = linkPose(angle);
+      arm.link.position.set(0, p.y, p.z);
+      arm.link.rotation.x = p.angle;
 
       // --- 4. depliage des pales ---
-      const tb = smooth(clamp01((clear - L.bladeStart - order * 0.05) / L.bladeSpan));
       // ouverture en ciseaux : charnieres deportees de part et d'autre du
       // moyeu, les deux pales tournent en sens opposes.
       for (let j = 0; j < arm.blades.length; j++) {
         arm.blades[j].rotation.y = Math.PI / 2 + (j === 0 ? -1 : 1) * (Math.PI / 2) * tb;
       }
     }
+
+    // --- poussoir, ressort de commande et verrou ----------------------
+    const s = sliderOffset(angle);
+    drone.slider.position.y = D.hingeY + s;
+    drone.spring.scale.y = springLength(angle);
+
+    // le cran tombe dans la gorge du poussoir en fin de course : le poussoir
+    // ne peut plus remonter, donc aucun bras ne peut se replier.
+    const push = smooth(clamp01((armT - 0.80) / 0.14)) * (1 - smooth(clamp01((armT - 0.95) / 0.05)));
+    drone.detentFinger.position.x = MECH.rodR + 2.4 * 0.001 + push * MECH.detentTravel;
+    this.stroke = S_REST - s;
+    this.locked = armT >= 0.99;
 
     // --- 5. montee en regime ------------------------------------------
     const rpmFrac = smooth(span(t, SEQ.spin));
@@ -154,8 +158,8 @@ export class Deployment {
     body.rotation.x = Math.cos(this._bob * 1.3) * 0.018 * hover;
 
     this.rpm = Math.round(rpmFrac * D.rpm);
-    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(drone.arms[0].hinge.rotation.x));
-    this.locked = drone.arms[0].locked;
+    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(angle));
+    this.transmission = Math.round(transmission(angle));
   }
 
   get phaseName() {

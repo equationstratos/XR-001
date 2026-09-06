@@ -176,36 +176,77 @@ temporel).
 
 Le dépliage n'est pas une animation posée sur un modèle figé : la chaîne
 mécanique est modélisée pièce à pièce et animée par la même variable.
-Le bouton **Vue mécanisme** (ou `M`) isole une articulation — les autres bras,
-le carénage, les cloisons et les modules sont effacés — et la caméra suit la
-pièce pendant tout le tir.
+Le bouton **Vue mécanisme** (ou `M`) isole le train de commande — les autres
+bras, le carénage, les cloisons, l'épine et les modules sont effacés, les joues
+de chape passent en fantôme — et la caméra suit la pièce pendant tout le tir.
 
-### Articulation de bras (× 4)
+L'architecture est une **bielle-manivelle synchronisée**, transposée du
+mécanisme d'empennage retardateur type *Snakeye* : un seul poussoir axial
+attaque les quatre bras par quatre biellettes.
+
+### Chaîne de commande
 
 | Pièce | Définition |
 |---|---|
-| Chape | 7075, deux joues Ø 10 × 1,4, ancrée sur l'épine |
-| Axe | Ø 1,5 inox, débordant pour porter le ressort, retenu par 2 circlips |
-| Ressort de torsion | fil Ø 0,6, 6 spires, Ø moyen 5,2 ; branches radiales encastrées l'une sur la chape, l'autre sur le bras |
+| Moyeu cruciforme | 7075, quatre chapes à deux joues Ø 10 × 1,4, ceinturant l'épine, centre ouvert |
+| Axes | Ø 1,5 inox, un par bras, retenus par circlips |
+| Manivelle | 4,7 mm venue de matière sur le pied de bras, calée à 157,5° de l'axe du fuseau |
+| Biellette jumelée | deux flasques 0,9 mm, entraxe 7,5 mm, tourillons aux deux bouts (× 4) |
+| Poussoir | tige Ø 3,4 sur l'axe du drone, étoile à quatre manetons à r = 3 mm |
+| Ressort de commande | compression Ø fil 0,9 · Ø moyen 6 · 7 spires, libre 15 mm |
 | Butée | épaulement usiné dans la chape + pastille élastomère |
-| Verrou | doigt Ø 2,2 poussé par un ressort de compression, guidé par deux flasques |
+| Verrou | cran à ressort tombant dans la gorge du poussoir |
 
-La spire tourne de la **moitié** de l'angle du bras — c'est la conséquence
-directe de l'encastrement de ses deux branches, et c'est ce que fait le modèle.
-En fin de course, le **talon** usiné dans le pied de bras efface le doigt, puis
-le laisse ressortir derrière lui : le repliage devient impossible (le
-déverrouillage demande un outil). Le panneau affiche l'état en direct —
-`ouvert` → `VERROUILLÉ` — et l'angle d'ouverture réel.
+Trois conséquences qui justifient le changement d'architecture :
+
+1. **Synchronisation mécanique.** Les quatre bras sont liés au même poussoir :
+   ils ne *peuvent pas* s'ouvrir en désordre. Un bras qui coince bloque le
+   poussoir, donc tous les autres — le défaut se voit au sol au lieu de
+   produire une configuration dissymétrique en vol. Le décalage entre paires
+   opposées de la version précédente a donc disparu, et c'est voulu.
+2. **Un seul ressort** au lieu de quatre, logé dans l'épine — le volume qui
+   était déjà vide.
+3. **Un seul verrou** au lieu de quatre doigts : le poussoir bloqué, aucun bras
+   ne peut se replier.
+
+### Cinématique — résolue, pas approchée
+
+La contrainte de bielle est résolue en **forme fermée** à chaque image
+(`src/model/linkage.js`), donc la biellette a toujours exactement son entraxe
+nominal, quelle que soit la position du curseur :
+
+```
+ψ = θ + φ
+C = a·(cos ψ, −sin ψ)          maneton de manivelle
+B = (rodPin − hingeR, s)       maneton d'étoile
+s = −a·sin ψ − √(L² − (a·cos ψ − bu)²)
+```
+
+Le panneau affiche en direct la course du poussoir et l'angle de transmission.
+Valeurs mesurées sur l'application, conformes au dimensionnement :
+
+| Ouverture | Course | Transmission |
+|---|---|---|
+| 3° (replié, en butée sur le carénage) | 0,00 mm | 53° |
+| 59° | 4,37 mm | 88° |
+| 94° (verrouillé) | **7,06 mm** | 54° |
+
+Aucun point mort sur toute la course — le mécanisme ne peut pas se coincer en
+position intermédiaire.
 
 ### Dimensionnement — les chiffres sont vérifiables
 
 ```
 inertie d'un bras autour de l'axe   I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
 ouverture 90° en 80 ms              α = 2θ/t²                  ≈ 490 rad/s²
-couple nécessaire                   C = I·α                    ≈ 26 mN·m
-fil à ressort Ø 0,6                 C_max = π·d³·σ/32          ≈ 25 mN·m (σ = 1200 MPa)
-énergie à encaisser en butée        E = ½·I·ω²                 ≈ 41 mJ → élastomère
-effort du bras sur le fût           F = C/L                    ≈ 0,32 N → négligeable
+couple requis par bras              C = I·α                    ≈ 26 mN·m
+énergie à fournir (4 bras)          4 × ½·I·ω²                 ≈ 165 mJ
+raideur du ressort                  k = G·d⁴/(8·D³·n)          ≈ 4,3 N/mm
+effort bras replié (flèche 8,57)    F = k·x                    ≈ 37 N
+précharge bras déployé (flèche 1,52)                           ≈ 6,5 N
+énergie restituée                   ½k(8,57² − 1,52²)          ≈ 152 mJ
+longueur solide 7 × 0,9 = 6,3 mm < 6,4 mm comprimé  → ne talonne pas
+énergie encaissée par butée         E = ½·I·ω²                 ≈ 41 mJ → élastomère
 ```
 
 Le bras replié n'est pas à 90° : le ressort le pousse en permanence contre la
@@ -256,6 +297,7 @@ docs/index.html            copie de la précédente, pour Pages en mode /docs
 src/
 ├── index.html             point d'entrée de développement (source)
 ├── config.js              cotes, ancrages axiaux, séquence, fiche technique
+├── model/linkage.js       cinématique de la tringlerie, résolue en forme fermée
 ├── core/
 │   ├── viewer.js          renderer, caméra, éclairage, IBL, boucle à la demande
 │   └── materials.js       registre de matériaux PBR + textures procédurales

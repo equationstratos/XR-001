@@ -90,23 +90,45 @@ export const Y = {
 };
 
 /**
- * MECANISME DE DEPLOIEMENT — cotes de la chaine reelle.
+ * MECANISME DE DEPLOIEMENT — bielle-manivelle synchronise.
  *
- * Chaine par bras (4 exemplaires identiques) :
- *   chape 7075 a deux joues  ->  axe Ø1,5 acier inox retenu par circlips
- *   ressort de torsion Ø0,6 monte en porte-a-faux sur l'axe (25 mN·m)
- *   butee usinee dans la chape + pastille elastomere (encaisse 41 mJ)
- *   doigt de verrouillage Ø2,2 pousse par un ressort de compression :
- *   le talon du bras l'efface en fin de course puis il ressort derriere lui,
- *   interdisant le repliage (deverrouillage a l'outil).
+ * Transposition du mecanisme d'empennage retardateur type "Snakeye" : au lieu
+ * de quatre ressorts de torsion independants, UN poussoir axial unique attaque
+ * les quatre bras par quatre biellettes. Ce que cela change :
  *
- * Dimensionnement du ressort de torsion (verifiable) :
- *   inertie d'un bras autour de l'axe  I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
- *   objectif d'ouverture 90° en 80 ms  ->  α = 2θ/t² ≈ 490 rad/s²
- *   couple necessaire                  C = I·α ≈ 26 mN·m
- *   fil a ressort Ø0,6 : C_max = π·d³·σ/32 ≈ 25 mN·m a σ = 1200 MPa  -> OK
- *   energie a encaisser en butee       E = ½·I·ω² ≈ 41 mJ  -> pastille elastomere
- *   effort du bras sur le fut du tube  F = C/L ≈ 0,32 N par bras -> negligeable
+ *   - synchronisation MECANIQUE : les quatre bras sont lies au meme poussoir,
+ *     ils ne peuvent pas s'ouvrir en desordre. Un bras qui coince bloque le
+ *     poussoir, donc tous les autres : le defaut se voit au sol au lieu de
+ *     produire une configuration dissymetrique en vol ;
+ *   - un seul ressort au lieu de quatre, loge dans l'epine (volume deja vide) ;
+ *   - un seul verrou (cran sur le poussoir) au lieu de quatre doigts.
+ *
+ * Geometrie, dans le plan du bras (u = radial, v = axial, origine sur l'axe
+ * d'articulation) :
+ *
+ *     maneton d'etoile      B = (rodPin - hingeR, s)     s = position poussoir
+ *     maneton de manivelle  C = a·(cos ψ, -sin ψ)        ψ = θ + φ
+ *     contrainte de bielle  |C - B| = L
+ *
+ * Parametres issus d'un balayage sous contraintes d'implantation (le maneton
+ * doit rester entre la tige centrale et les lisses, la course doit etre
+ * monotone, l'angle de transmission eleve sur toute la course) :
+ *
+ *     course du poussoir             7,06 mm
+ *     angle de transmission          53° a 87° — aucun point mort
+ *     rayon balaye par le maneton    3,8 a 6,5 mm — passe entre les lisses
+ *
+ * Dimensionnement (4 bras, I = 5,4e-5 kg·m² chacun, ouverture 90° en 80 ms) :
+ *     energie a fournir     4 × ½·I·ω²        ≈ 165 mJ
+ *     couple requis par bras  I·α             ≈ 26 mN·m
+ *     couple rendu            F·a·sin μ       -> F ≈ 7 N par bielle
+ *     ressort Ø fil 0,9 · Ø moyen 6 · 7 spires actives, libre 15 mm
+ *       raideur  k = G·d⁴/(8·D³·n)            ≈ 4,3 N/mm
+ *       effort bras replie (fleche 8,57)      ≈ 37 N
+ *       precharge bras deploye (fleche 1,52)  ≈ 6,5 N — plaque sur la butee
+ *       energie restituee ½k(8,57² - 1,52²)   ≈ 152 mJ
+ *       longueur solide 7 × 0,9 = 6,3 mm < 6,4 mm comprime -> ne talonne pas
+ *     energie encaissee par butee de bras     ≈ 41 mJ -> pastille elastomere
  *
  * Pales : charnieres a vis epaulee Ø1,5 deportees de hubR de part et d'autre
  * du moyeu. Deploiement centrifuge, aucun ressort :
@@ -115,35 +137,54 @@ export const Y = {
  */
 export const MECH = {
   shroudRi: 16 * MM,      // face interne du carenage : butee du bras replie
+
+  // --- moyeu cruciforme et articulation ---
   cheekR: 5.0 * MM,       // joue de chape
   cheekT: 1.4 * MM,
   cheekGap: 5.2 * MM,     // entraxe interieur = largeur du pied de bras
   pinR: 0.75 * MM,        // axe Ø1,5
-  pinLen: 15 * MM,        // deborde pour porter le ressort + circlips
-  coilX: 5.6 * MM,        // position du ressort sur l'axe
-  coilR: 2.6 * MM,        // rayon moyen d'enroulement
-  wire: 0.6 * MM,         // fil du ressort de torsion
-  coilTurns: 6,
-  coilLen: 4.5 * MM,
-  legLen: 7.5 * MM,       // branches radiales du ressort
-  latchR: 1.1 * MM,       // doigt de verrouillage Ø2,2
-  latchLen: 6.5 * MM,
-  latchTravel: 1.9 * MM,  // course d'effacement
-  latchY: -6.2 * MM,      // implantation du doigt dans la chape
-  latchZ: 2.4 * MM,
-  heelR: 4.4 * MM,        // talon usine dans le pied de bras
+  pinLen: 11 * MM,
+  collarR: 9.6 * MM,      // rayon hors-tout du moyeu cruciforme
+  collarH: 8 * MM,
+  boreR: 2.6 * MM,        // alesage central de passage de la tige
+  heelR: 4.4 * MM,        // moyeu tourillonnant du pied de bras
   bumperR: 1.6 * MM,      // pastille elastomere de butee
+
+  // --- tringlerie ---
+  crank: 4.7 * MM,        // manivelle portee par le pied de bras
+  crankPhi: 157.5,        // calage de la manivelle sur l'axe du bras (deg)
+  rodPin: 3.0 * MM,       // rayon des manetons sur l'etoile du poussoir
+  link: 7.5 * MM,         // entraxe de bielle
+  linkT: 0.9 * MM,        // epaisseur d'un flasque de bielle jumelee
+  linkGap: 2.6 * MM,      // entraxe interieur des deux flasques
+  linkW: 2.4 * MM,        // largeur des flasques
+
+  // --- poussoir ---
+  rodR: 1.7 * MM,         // tige de commande Ø3,4
+  spiderT: 2.0 * MM,      // epaisseur de l'etoile d'entrainement
+  seatY: 48 * MM,         // siege fixe du ressort, sous la cloison haute
+  springR: 3.0 * MM,      // rayon moyen du ressort de compression
+  springWire: 0.9 * MM,
+  springTurns: 7,
+  detentR: 0.9 * MM,      // cran de verrouillage du poussoir
+  detentTravel: 1.5 * MM,
+  detentY: -12 * MM,      // implantation du cran sous le plan d'axe
+
+  // --- pales ---
   screwR: 0.75 * MM,      // vis epaulee de charniere de pale
 };
 
 export const MECH_SPECS = [
-  ['Ressort de torsion', 'Ø 0,6 · 6 sp. · 25 mN·m'],
-  ['Ouverture d\'un bras', '90° en ≈ 80 ms'],
-  ['Énergie en butée', '41 mJ · pastille élastomère'],
-  ['Verrouillage', 'doigt Ø 2,2 à ressort, irréversible'],
-  ['Effort sur le fût', '0,32 N par bras'],
-  ['Charnière de pale', 'vis épaulée Ø 1,5 · sans ressort'],
-  ['Déploiement pales', 'centrifuge · 38 N à 20 000 tr/min'],
+  ['Architecture', 'bielle-manivelle, 1 poussoir'],
+  ['Course du poussoir', '7,06 mm'],
+  ['Angle de transmission', '53° à 87° — sans point mort'],
+  ['Ressort de commande', 'Ø fil 0,9 · Ø 6 · 7 sp. · 4,3 N/mm'],
+  ['Effort replié → déployé', '37 N → 6,5 N de précharge'],
+  ['Énergie restituée', '152 mJ · ouverture en ≈ 80 ms'],
+  ['Couple rendu par bras', '≈ 26 mN·m'],
+  ['Synchronisation', 'mécanique — 4 bras liés'],
+  ['Verrouillage', 'cran sur poussoir, irréversible'],
+  ['Charnière de pale', 'vis épaulée Ø 1,5 · centrifuge'],
 ];
 
 /** Vue eclatee : direction (x,y,z) + amplitude par sous-ensemble. */
@@ -180,9 +221,9 @@ export const LAUNCH = {
   rise: 0.07,        // montee du projectile (m)
   drop: 0.17,        // recul apparent du lanceur (m) ; seul le mouvement relatif compte
   decel: 1.25,       // exposant du profil de vitesse (1 = vitesse constante)
-  armFree: 1.00,     // degagement a partir duquel le bras est libre
-  armSpan: 0.72,     // degagement consomme par l'ouverture d'un bras
-  armStagger: 0.07,  // decalage entre les deux paires opposees
+  armFree: 1.00,     // degagement a partir duquel les bras sont libres
+  armSpan: 0.72,     // degagement consomme par l'ouverture
+  // (pas de decalage entre bras : la tringlerie les rend solidaires)
   bladeStart: 1.80,  // degagement de debut de depliage des pales
   bladeSpan: 0.65,
   spinAxial: 3.2,    // tours de roulis pendant la sortie de tube (stabilisation)

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { D, Y, MECH, EXPLODE } from '../config.js';
 import {
-  buildChassis, buildBay, buildShroud, buildClevis, buildTorsionSpring, buildLatch,
-  buildHead, buildNose, buildArm, buildMotor, buildBlade, buildHub, buildInternals, buildTube,
+  buildChassis, buildBay, buildShroud, buildCollar, buildLink, buildSlider,
+  buildDriveSpring, buildDetent, buildHead, buildNose, buildArm, buildMotor,
+  buildBlade, buildHub, buildInternals, buildTube,
 } from './parts.js';
 
 const RAD = Math.PI / 180;
@@ -47,8 +48,11 @@ export class Drone {
     this.bulkheads.name = 'bulkheads';
     this.shroud = this._mesh(buildShroud(D), M.carbon);
     this.shroud.name = 'shroud';
-    this.clevis = this._mesh(buildClevis(D), M.alu);
-    this.clevis.name = 'clevis';
+    const col = buildCollar(D);
+    this.collarRing = this._mesh(col.ring, M.alu);
+    this.collarRing.name = 'collar-ring';
+    this.collar = this._mesh(col.clevis, M.alu);
+    this.collar.name = 'collar';
 
     // --- tete optronique ---
     this.head = new THREE.Group();
@@ -93,9 +97,8 @@ export class Drone {
     const { bell, stator } = buildMotor(D);
     const hubGeo = buildHub(D);
     const bladeGeo = buildBlade(D);
-    const coilGeo = buildTorsionSpring();
-    const latch = buildLatch();
-    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, coilGeo, latch.plunger, latch.spring);
+    const linkGeo = buildLink();
+    this.geometries.push(armGeo, bell, stator, hubGeo, bladeGeo, linkGeo);
 
     for (let i = 0; i < D.armCount; i++) {
       const az = (D.armSweep + i * (360 / D.armCount)) * RAD;
@@ -111,25 +114,13 @@ export class Drone {
 
       this._mesh(armGeo, M.carbon, hinge);
 
-      // --- mecanisme d'articulation ---------------------------------
-      // ressort de torsion : la spire tourne de la moitie de l'angle du bras
-      const coil = new THREE.Group();
-      coil.position.z = D.hingeR;
-      yaw.add(coil);
-      this._mesh(coilGeo, M.spring, coil, false);
-
-      // doigt de verrouillage : efface par le talon puis ressort derriere lui
-      const plunger = new THREE.Group();
-      plunger.position.set(0, MECH.latchY - 2.65 * 0.001, D.hingeR + MECH.latchZ);
-      yaw.add(plunger);
-      this._mesh(latch.plunger, M.alu, plunger, false);
-
-      // ressort de compression du verrou : comprime depuis le haut
-      const lspring = new THREE.Group();
-      lspring.position.set(0, -13.6 * 0.001, D.hingeR + MECH.latchZ);
-      yaw.add(lspring);
-      const sm = this._mesh(latch.spring, M.spring, lspring, false);
-      sm.position.y = 1.7 * 0.001;
+      // --- tringlerie -------------------------------------------------
+      // La bielle relie le maneton de l'etoile (sur le poussoir) au maneton
+      // de manivelle (sur le pied de bras). Les deux sont dans le plan x = 0
+      // du repere de bras : une seule rotation autour de X suffit a la poser.
+      const link = new THREE.Group();
+      yaw.add(link);
+      this._mesh(linkGeo, M.alu, link, false);
 
       // pastille elastomere de butee
       const bump = this._mesh(
@@ -160,12 +151,40 @@ export class Drone {
         blades.push(pivot);
       }
       this.arms.push({
-        yaw, hinge, motor, hub, blades, coil, plunger, lspring, az,
+        yaw, hinge, motor, hub, blades, link, az,
         restZ: hinge.position.z,
-        restPlungerY: plunger.position.y,
-        ta: 0, locked: false,
+        ta: 0,
       });
     }
+
+    // --- poussoir central, commun aux quatre bras --------------------
+    // C'est lui qui rend les bras solidaires : une seule position axiale
+    // definit les quatre angles d'ouverture.
+    this.slider = new THREE.Group();
+    this.root.add(this.slider);
+    this._mesh(buildSlider(D), M.alu, this.slider, false);
+
+    // ressort de compression : siege fixe sous la cloison haute, il pousse
+    // l'etoile vers la queue. Mis a l'echelle en Y a sa longueur courante.
+    this.spring = new THREE.Group();
+    this.spring.position.y = MECH.seatY;
+    this.root.add(this.spring);
+    const sp = this._mesh(buildDriveSpring(), M.spring, this.spring, false);
+    sp.position.y = -0.5;                      // helice unitaire ancree au siege
+
+    // verrou : cran a ressort qui tombe dans la gorge du poussoir en fin de course
+    const det = buildDetent();
+    this.geometries.push(det.finger, det.spring, det.guide);
+    this.detent = new THREE.Group();
+    this.detent.position.set(0, D.hingeY + MECH.detentY, 0);
+    this.root.add(this.detent);
+    this._mesh(det.guide, M.aluDark, this.detent, false);
+    this.detentFinger = new THREE.Group();
+    this.detentFinger.position.x = MECH.rodR + 2.4 * 0.001;
+    this.detent.add(this.detentFinger);
+    this._mesh(det.finger, M.alu, this.detentFinger, false);
+    const ds = this._mesh(det.spring, M.spring, this.detentFinger, false);
+    ds.position.x = 4.2 * 0.001;
     this.labels.push({
       text: 'Bras repliable + rotor',
       obj: this.arms[0].motor,
@@ -175,11 +194,13 @@ export class Drone {
     // reperes du mecanisme (vue d'inspection)
     const a0 = this.arms[0];
     this.mechLabels = [
-      { text: 'Chape 7075 + axe Ø1,5', obj: a0.yaw, pos: new THREE.Vector3(-0.013, -0.002, D.hingeR - 0.004) },
-      { text: 'Ressort de torsion Ø0,6 · 25 mN·m', obj: a0.yaw, pos: new THREE.Vector3(MECH.coilX + 0.002, 0.006, D.hingeR) },
+      { text: 'Moyeu cruciforme + axe Ø1,5', obj: a0.yaw, pos: new THREE.Vector3(-0.013, -0.001, D.hingeR - 0.003) },
       { text: 'Butée + pastille élastomère', obj: a0.yaw, pos: new THREE.Vector3(0, 0.012, D.hingeR + 0.002) },
-      { text: 'Doigt de verrouillage Ø2,2', obj: a0.yaw, pos: new THREE.Vector3(0, -0.017, D.hingeR + 0.005) },
-      { text: 'Talon du bras', obj: a0.hinge, pos: new THREE.Vector3(0, -0.009, 0.002) },
+      { text: 'Manivelle du pied de bras', obj: a0.hinge, pos: new THREE.Vector3(0, -0.014, -0.007) },
+      { text: 'Bielle jumelée · entraxe 7,5', obj: a0.yaw, pos: new THREE.Vector3(0, -0.002, 0.008) },
+      { text: 'Ressort de commande · 37 N', obj: this.spring, pos: new THREE.Vector3(0, -0.005, 0.007) },
+      { text: 'Étoile d\'entraînement', obj: this.slider, pos: new THREE.Vector3(0, 0.001, -0.009) },
+      { text: 'Verrou de poussoir', obj: this.detent, pos: new THREE.Vector3(0.010, -0.004, 0) },
       { text: 'Charnière de pale · vis épaulée Ø1,5', obj: a0.hub, pos: new THREE.Vector3(0, 0.008, -0.004) },
     ];
   }

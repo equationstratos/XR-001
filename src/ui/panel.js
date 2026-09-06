@@ -9,6 +9,7 @@ export function initPanel({ viewer, drone, deploy, labels, mech }) {
     clip: $('[data-out="clip"]'), name: $('[data-out="phaseName"]'),
     clear: $('[data-out="clear"]'),
     arm: $('[data-out="arm"]'), lock: $('[data-out="lock"]'),
+    stroke: $('[data-out="stroke"]'), transm: $('[data-out="transm"]'),
   };
   const hud = {
     fps: $('[data-hud="fps"]'), calls: $('[data-hud="calls"]'), tris: $('[data-hud="tris"]'),
@@ -29,6 +30,8 @@ export function initPanel({ viewer, drone, deploy, labels, mech }) {
     out.clear.textContent = `${deploy.clear.toFixed(2).replace('.', ',')} L`;
     out.clear.style.color = deploy.clear >= 1 ? 'var(--acc)' : 'var(--acc2)';
     out.arm.textContent = `${deploy.armAngle}°`;
+    out.stroke.textContent = `${(deploy.stroke * 1000).toFixed(2).replace('.', ',')} mm`;
+    out.transm.textContent = `${deploy.transmission}°`;
     out.lock.textContent = deploy.locked ? 'VERROUILLÉ' : 'ouvert';
     out.lock.style.color = deploy.locked ? 'var(--acc)' : 'var(--acc2)';
     play.textContent = deploy.playing ? '❚❚ Pause' : '▶ Lancer la séquence';

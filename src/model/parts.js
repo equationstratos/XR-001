@@ -107,67 +107,134 @@ export function buildBay(D) {
 }
 
 /**
- * Chape d'articulation reelle, x4, fusionnee (piece fixe du chassis) :
- * deux joues, l'axe traversant qui deborde pour porter le ressort de torsion,
- * la butee d'ouverture, le corps du verrou et la branche fixe du ressort.
- * Geometrie exprimee dans le repere du bras (axe = X, bras vers +Z) puis
- * portee a l'azimut de chaque bras.
+ * Moyeu cruciforme (piece fixe), transpose de la bague a quatre chapes du
+ * mecanisme d'empennage retardateur : une couronne alesee pour le passage de
+ * la tige de commande, quatre chapes a deux joues, quatre butees d'ouverture.
+ * Geometrie ecrite dans le repere du bras (axe d'articulation = X, bras vers
+ * +Z) puis portee a l'azimut de chaque bras.
  */
-export function buildClevis(D) {
+export function buildCollar(D) {
   const K = MECH;
   const out = [];
+
+  // Couronne : quatre pans qui ceinturent l'epine et portent les chapes. Elle
+  // ne ferme PAS le centre — la tige de commande et son ressort traversent le
+  // moyeu de part en part. Mesh separe : la vue mecanisme l'efface pour
+  // laisser voir la tringlerie, les chapes restant en place.
+  const ring = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i * 90) * RAD;
+    ring.push(place(new THREE.BoxGeometry(K.collarR * 0.8, K.collarH, 2.2 * mm), {
+      z: (D.bodyR + 0.6 * mm) * Math.cos(a), x: (D.bodyR + 0.6 * mm) * Math.sin(a), ry: a,
+    }));
+  }
+  const ringGeo = mergeGeometries(
+    ring.map((g) => g.applyMatrix4(new THREE.Matrix4().makeTranslation(0, D.hingeY, 0))), false);
+
   for (let i = 0; i < D.armCount; i++) {
     const a = (D.armSweep + i * (360 / D.armCount)) * RAD;
     const g = [];
-    // deux joues + leur liaison au fut
+    // deux joues de chape + leur bras de liaison a la couronne
     for (const sgn of [1, -1]) {
       const x = sgn * (K.cheekGap / 2 + K.cheekT / 2);
       g.push(place(cyl(K.cheekR, K.cheekR, K.cheekT, 20), { x, rz: Math.PI / 2 }));
-      g.push(place(new THREE.BoxGeometry(K.cheekT, K.cheekR * 1.7, D.hingeR * 0.9), { x, y: -K.cheekR * 0.5, z: -D.hingeR * 0.45 }));
-    }
-    // semelle d'ancrage sur l'epine
-    g.push(place(new THREE.BoxGeometry(K.cheekGap + 2 * K.cheekT, 3 * mm, 5 * mm), { y: -K.cheekR * 0.9, z: -D.hingeR * 0.8 }));
-    // axe Ø1,5 debordant (porte le ressort, retenu par circlips)
-    g.push(place(cyl(K.pinR, K.pinR, K.pinLen, 10), { x: K.pinLen / 2 - K.cheekGap / 2 - K.cheekT - 1 * mm, rz: Math.PI / 2 }));
-    for (const cx of [K.coilX - K.coilLen / 2 - 0.7 * mm, K.coilX + K.coilLen / 2 + 0.7 * mm]) {
-      g.push(place(cyl(K.pinR * 1.7, K.pinR * 1.7, 0.5 * mm, 10), { x: cx, rz: Math.PI / 2 }));   // circlips
-    }
-    // butee d'ouverture usinee dans la chape
-    g.push(place(new THREE.BoxGeometry(K.cheekGap, 2.2 * mm, 3.4 * mm), { y: K.cheekR * 0.62, z: 1.6 * mm }));
-    // guide du verrou : deux flasques (le doigt et son ressort restent visibles)
-    for (const sgn of [1, -1]) {
-      g.push(place(new THREE.BoxGeometry(1 * mm, 9 * mm, 4.2 * mm), {
-        x: sgn * K.cheekGap * 0.4, y: -9.5 * mm, z: K.latchZ,
+      g.push(place(new THREE.BoxGeometry(K.cheekT, K.cheekR * 1.5, D.hingeR * 0.95), {
+        x, y: -K.cheekR * 0.35, z: -D.hingeR * 0.48,
       }));
     }
-    g.push(place(new THREE.BoxGeometry(K.cheekGap * 0.8 + 2 * mm, 1.2 * mm, 4.2 * mm), { y: -14.1 * mm, z: K.latchZ }));
-    // branche fixe du ressort de torsion (radiale, vers le fut)
-    g.push(place(cyl(K.wire / 2, K.wire / 2, K.legLen, 6), { x: K.coilX, y: -K.legLen / 2 - 1.5 * mm }));
+    // axe Ø1,5 traversant, retenu par circlips
+    g.push(place(cyl(K.pinR, K.pinR, K.pinLen, 10), { rz: Math.PI / 2 }));
+    for (const sgn of [1, -1]) {
+      g.push(place(cyl(K.pinR * 1.8, K.pinR * 1.8, 0.5 * mm, 10), {
+        x: sgn * (K.cheekGap / 2 + K.cheekT + 0.5 * mm), rz: Math.PI / 2,
+      }));
+    }
+    // butee d'ouverture usinee dans la chape (recoit la pastille elastomere)
+    g.push(place(new THREE.BoxGeometry(K.cheekGap, 2.2 * mm, 3.4 * mm), { y: K.cheekR * 0.62, z: 1.6 * mm }));
 
-    // report a l'azimut du bras
     const m = new THREE.Matrix4().makeRotationY(a)
       .multiply(new THREE.Matrix4().makeTranslation(0, D.hingeY, D.hingeR));
     out.push(...g.map((x) => x.applyMatrix4(m)));
   }
-  return mergeGeometries(out, false);
+  return { ring: ringGeo, clevis: mergeGeometries(out, false) };
 }
 
-/** Ressort de torsion : la spire tourne de la moitie de l'angle du bras. */
-export function buildTorsionSpring() {
+/**
+ * Bielle jumelee : deux flasques paralleles reunis par deux tourillons,
+ * exactement la piece repetee quatre fois dans le kit d'origine. Construite
+ * le long de +Z, origine sur le maneton cote poussoir.
+ */
+export function buildLink() {
   const K = MECH;
-  return place(helix(K.coilR, K.wire, K.coilTurns, K.coilLen), { x: K.coilX });
+  const g = [];
+  for (const sgn of [1, -1]) {
+    const x = sgn * (K.linkGap / 2 + K.linkT / 2);
+    g.push(place(new THREE.BoxGeometry(K.linkT, K.linkW, K.link), { x, z: K.link / 2 }));
+    for (const z of [0, K.link]) {
+      g.push(place(cyl(K.linkW * 0.62, K.linkW * 0.62, K.linkT, 14), { x, z, rz: Math.PI / 2 }));
+    }
+  }
+  // tourillons traversants
+  for (const z of [0, K.link]) {
+    g.push(place(cyl(K.pinR * 0.9, K.pinR * 0.9, K.linkGap + 2 * K.linkT + 0.8 * mm, 10), { z, rz: Math.PI / 2 }));
+  }
+  return mergeGeometries(g, false);
 }
 
-/** Doigt de verrouillage + son ressort de compression (pieces mobiles). */
-export function buildLatch() {
+/**
+ * Poussoir : tige de commande axiale, etoile d'entrainement a quatre manetons
+ * et gorge de verrouillage. Construit dans le repere du drone, origine au
+ * niveau du plan d'axe des articulations (y = hingeY) ; l'objet est ensuite
+ * translate de la course courante.
+ */
+export function buildSlider(D) {
   const K = MECH;
-  const plunger = mergeGeometries([
-    place(cyl(K.latchR, K.latchR, K.latchLen, 12), {}),
-    place(cyl(K.latchR, K.latchR * 0.45, 1.4 * mm, 12), { y: K.latchLen / 2 + 0.7 * mm }),  // chanfrein d'effacement
-    place(cyl(K.latchR * 1.45, K.latchR * 1.45, 1 * mm, 12), { y: -K.latchLen / 2 + 0.5 * mm }), // collerette
+  const g = [];
+  const rodLen = 34 * mm;
+  g.push(place(cyl(K.rodR, K.rodR, rodLen, 14), { y: -rodLen / 2 + K.spiderT }));
+  g.push(place(cyl(K.rodR * 1.5, K.rodR * 1.5, 1.6 * mm, 14), { y: K.spiderT + 0.8 * mm })); // siege de ressort
+  // gorge de verrouillage : deux epaulements encadrant le cran
+  for (const s of [1, -1]) {
+    g.push(place(cyl(K.rodR * 1.45, K.rodR * 1.45, 1 * mm, 14), { y: K.detentY + s * 1.6 * mm }));
+  }
+  // etoile : quatre bras portant les manetons de bielle
+  for (let i = 0; i < D.armCount; i++) {
+    const a = (D.armSweep + i * (360 / D.armCount)) * RAD;
+    g.push(place(new THREE.BoxGeometry(K.linkW * 1.3, K.spiderT, K.rodPin + 1.6 * mm), {
+      x: Math.sin(a) * (K.rodPin / 2), z: Math.cos(a) * (K.rodPin / 2), ry: a,
+    }));
+    g.push(place(cyl(K.pinR * 0.9, K.pinR * 0.9, K.linkGap + 2 * K.linkT + 0.8 * mm, 10), {
+      x: Math.sin(a) * K.rodPin, z: Math.cos(a) * K.rodPin, ry: a, rz: Math.PI / 2,
+    }));
+  }
+  return mergeGeometries(g, false);
+}
+
+/**
+ * Ressort de commande : helice d'axe Y, longueur unitaire, mise a l'echelle
+ * a la longueur courante par la scene (un ressort qui se comprime, c'est
+ * exactement un pas qui diminue a diametre constant).
+ */
+export function buildDriveSpring() {
+  const K = MECH;
+  return place(helix(K.springR, K.springWire, K.springTurns, 1, 6), { rz: Math.PI / 2 });
+}
+
+/** Cran de verrouillage du poussoir : doigt + ressort, sur le bati. */
+export function buildDetent() {
+  const K = MECH;
+  const finger = mergeGeometries([
+    place(cyl(K.detentR, K.detentR, 5 * mm, 12), { rz: Math.PI / 2 }),
+    place(cyl(K.detentR, K.detentR * 0.4, 1.2 * mm, 12), { x: -3.1 * mm, rz: Math.PI / 2 }),
+    place(cyl(K.detentR * 1.5, K.detentR * 1.5, 1 * mm, 12), { x: 2.2 * mm, rz: Math.PI / 2 }),
   ], false);
-  const spring = place(helix(K.latchR * 1.15, 0.35 * mm, 5, 3.4 * mm), { rz: Math.PI / 2 });
-  return { plunger, spring };
+  const spring = helix(K.detentR * 1.2, 0.3 * mm, 5, 3 * mm, 5);
+  const guide = mergeGeometries([
+    place(new THREE.BoxGeometry(1 * mm, 3.6 * mm, 3.6 * mm), { x: 5.6 * mm }),
+    place(new THREE.BoxGeometry(6 * mm, 0.9 * mm, 3.6 * mm), { x: 3.4 * mm, y: 1.8 * mm }),
+    place(new THREE.BoxGeometry(6 * mm, 0.9 * mm, 3.6 * mm), { x: 3.4 * mm, y: -1.8 * mm }),
+  ], false);
+  return { finger, spring, guide };
 }
 
 /* ------------------------ tete optronique ------------------------ */
@@ -227,17 +294,27 @@ export function buildArm(D) {
   }));
   // pied de bras : moyeu tourillonnant entre les joues de la chape
   g.push(place(cyl(MECH.heelR, MECH.heelR, MECH.cheekGap - 0.3 * mm, 20), { rz: Math.PI / 2 }));
-  // talon de verrouillage : il efface le doigt en fin de course puis se bloque derriere
-  g.push(place(new THREE.BoxGeometry(MECH.cheekGap - 0.3 * mm, 2.2 * mm, 2.6 * mm), {
-    y: -MECH.heelR * 0.86, z: 1.4 * mm,
-  }));
   // face de butee (vient porter sur la pastille elastomere de la chape)
   g.push(place(new THREE.BoxGeometry(MECH.cheekGap - 0.3 * mm, 2 * mm, 3 * mm), {
     y: MECH.heelR * 0.72, z: 1.5 * mm,
   }));
-  // branche mobile du ressort de torsion (radiale, le long du bras)
-  g.push(place(cyl(MECH.wire / 2, MECH.wire / 2, MECH.legLen, 6), {
-    x: MECH.coilX, z: MECH.legLen / 2 + 1.5 * mm, rx: Math.PI / 2,
+
+  // MANIVELLE : bras de levier venu de matiere sur le pied, cale a crankPhi
+  // de l'axe du fuseau. C'est lui que la bielle attaque ; sa longueur (4,7 mm)
+  // et son calage (157,5°) fixent toute la loi d'ouverture.
+  const phi = MECH.crankPhi * RAD;
+  const cu = MECH.crank * Math.cos(phi);      // composante radiale (+Z local)
+  const cv = -MECH.crank * Math.sin(phi);     // composante axiale  (+Y local)
+  const cl = Math.hypot(cu, cv);
+  g.push(place(new THREE.BoxGeometry(MECH.cheekGap - 0.6 * mm, MECH.linkW * 1.35, cl), {
+    y: cv / 2, z: cu / 2, rx: Math.atan2(-cv, cu) - Math.PI / 2,
+  }));
+  // maneton de manivelle (tourillon recevant la bielle)
+  g.push(place(cyl(MECH.pinR * 0.9, MECH.pinR * 0.9, MECH.linkGap + 2 * MECH.linkT + 0.8 * mm, 10), {
+    y: cv, z: cu, rz: Math.PI / 2,
+  }));
+  g.push(place(cyl(MECH.linkW * 0.7, MECH.linkW * 0.7, MECH.cheekGap - 0.6 * mm, 14), {
+    y: cv, z: cu, rz: Math.PI / 2,
   }));
   return mergeGeometries(g, false);
 }
