@@ -192,27 +192,26 @@ sans rejouer le tir à chaque fois.
 | Attache de bielle | collier serré sur le fuseau, **30 mm** de l'axe d'articulation |
 | Biellette jumelée | deux flasques 1,0 mm, entraxe **38 mm** — 0,49 × la longueur de bras (× 4) |
 | Coulisseau | bague glissant sur le mât, étoile à quatre manetons à r = 3 mm |
-| **Ressorts moteurs** | **4 × torsion Ø fil 0,7 · Ø moyen 5 · 6 spires, sur les axes d'articulation** |
+| **Ressort moteur** | **1 × traction Ø fil 0,65 · Ø moyen 7 · 54 spires, corps 35 mm, ancré en tête** |
 | Butée | épaulement usiné dans la chape + pastille élastomère |
 | Verrou | cran à ressort tombant derrière le coulisseau en haut de course |
 
-### Où est le moteur, et pourquoi
+### Le ressort : un seul, en traction, armé par le repliage
 
-Le coulisseau **ne motorise pas** : il synchronise et il verrouille. La force
-vient de quatre ressorts de torsion montés sur les axes d'articulation
-eux-mêmes, donc **en haut du drone**, juste sous la tête.
+Le coulisseau **monte** pour ouvrir. Le ressort qui le tire est donc **au-dessus
+de lui**, ancré au sommet de la tête, et il **tire** au lieu de pousser.
 
-Ce n'est pas un choix libre. Le point d'attache étant porté par le bras, sa cote
-axiale `cv = −a·sin θ` **croît nécessairement** quand le bras s'ouvre, et les
-deux branches de la solution font monter le coulisseau — un balayage exhaustif
-ne trouve aucune configuration où il descende. Un ressort de compression placé
-en haut refermerait donc les bras au lieu de les ouvrir. Déplacer la fonction
-motrice sur les axes est la seule façon de mettre le ressort en haut, et elle a
-deux avantages propres :
+Il en découle exactement le comportement recherché : bras repliés, le coulisseau
+est en bas et le ressort est **étiré à 93,6 mm — il est armé par le repliage
+lui-même**. Bras déployés, il s'est raccourci à 37,7 mm et ne conserve qu'une
+précharge de 0,26 N, juste ce qu'il faut pour plaquer les bras sur leurs butées.
 
-* la masse du ressort remonte au voisinage du plan rotor ;
-* la tringlerie ne transmet plus que l'écart entre bras, pas la puissance —
-  bielles et manetons travaillent donc beaucoup moins.
+Il traverse la tête, la cloison haute et le moyeu, puis descend dans l'épine
+jusqu'au coulisseau, guidé par le mât sur toute sa longueur. Son Ø extérieur de
+7,65 mm passe dans les 8,6 mm libres entre les lisses de l'épine.
+
+Un seul ressort pour quatre bras : c'est la tringlerie qui répartit son effort,
+et c'est elle qui interdit tout décalage entre bras.
 
 Trois conséquences qui justifient le changement d'architecture :
 
@@ -259,22 +258,26 @@ est le plus faible.
 
 ```
 inertie d'un bras autour de l'axe   I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
-accélération pour 90° en 80 ms      α = 2θ/t²                  ≈ 490 rad/s²
-couple par bras                     C = I·α                    ≈ 26 mN·m
-énergie totale (4 bras)             4 × ½·I·ω²                 ≈ 165 mJ
-contrainte dans le fil Ø 0,7        σ = Kb·32·C/(π·d³)         ≈ 862 MPa
-résistance du fil à ressort Ø 0,7                              ≈ 2330 MPa
-taux de charge au stockage          σ/Rm                       ≈ 37 %
+énergie à fournir (4 bras)          4 × ½·I·ω²                 ≈ 165 mJ
+longueur du ressort                 93,6 mm armé → 37,7 mm détendu
+raideur                             k = G·d⁴/(8·D³·n)          ≈ 0,095 N/mm
+effort bras repliés                 F = k·x                    ≈ 5,64 N
+précharge bras déployés                                        ≈ 0,26 N
+énergie restituée                   ½k(x₁² − x₀²)              ≈ 164 mJ
+écart de spire à pleine tension                                1,09 mm (1,7 × le fil)
+contrainte                          τ = Kw·8·F·D/(π·d³)        ≈ 415 MPa
+résistance du fil à ressort Ø 0,65                             ≈ 2354 MPa
+taux de charge au stockage          τ/Rm                       ≈ 18 %
 énergie encaissée par butée         E = ½·I·ω²                 ≈ 41 mJ → élastomère
 ```
 
-**Sur la tenue au stockage prolongé.** Un ressort qui entraîne un mécanisme est
-forcément armé tant que le mécanisme est fermé — sa position dans le drone n'y
-change rien. Ce qui décide de sa relaxation, c'est son **taux de charge** : en
-restant sous ~40 % de la résistance du fil, un ressort peut demeurer armé
-indéfiniment sans perdre de couple. À 37 %, celui-ci est dans le domaine sûr.
-Pour un stockage long en température, un fil inox 302 ou un Inconel X-750
-abaisse encore la relaxation, au prix d'un module légèrement inférieur.
+**Sur la tenue au stockage prolongé.** Un ressort moteur est forcément armé
+tant que le mécanisme est fermé. Ce qui décide de sa relaxation, c'est son
+**taux de charge** : en restant sous ~40 % de la résistance du fil, il peut
+demeurer armé indéfiniment sans perdre d'effort. À **18 %**, celui-ci est très
+au large — c'est la contrepartie de sa longue course, qui permet une raideur
+faible. Pour un stockage long en température, un fil inox 302 ou un Inconel
+X-750 abaisse encore la relaxation.
 
 Le bras replié se range **strictement à plat** : le ressort le pousse en
 permanence, mais le train rotor bute contre la face interne du carénage. La

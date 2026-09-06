@@ -56,9 +56,10 @@ export class MechView {
       // La cible est le point de l'AXE au niveau des articulations : la
       // tringlerie est centrale (poussoir, ressort, bielles a r < 7 mm) alors
       // que l'articulation est a r = 8,5 mm. Viser l'axe cadre les deux.
-      // Le train de commande s'etend sur toute l'epine (le coulisseau descend
-      // a -23 mm, le point d'attache monte a +46) : on vise a mi-hauteur.
-      this._prev.y -= 0.024;
+      // Le train de commande s'etend sur toute la hauteur du drone : le
+      // ressort part de son ancrage en tete (+70) et descend jusqu'au
+      // coulisseau (-24). On vise a mi-hauteur de cet ensemble.
+      this._prev.y -= 0.021;
       const az = this.drone.arms[0].az;
       const out = new THREE.Vector3(Math.sin(az), 0, Math.cos(az));
       const tan = new THREE.Vector3(Math.cos(az), 0, -Math.sin(az));
@@ -67,7 +68,7 @@ export class MechView {
       const dir = new THREE.Vector3()
         .addScaledVector(tan, 0.86).addScaledVector(out, 0.26)
         .add(new THREE.Vector3(0, 0.26, 0)).normalize();
-      const d = 0.078 / Math.sin(THREE.MathUtils.degToRad(viewer.camera.fov / 2));
+      const d = 0.100 / Math.sin(THREE.MathUtils.degToRad(viewer.camera.fov / 2));
       viewer.camera.position.copy(this._prev).addScaledVector(dir, d);
       c.target.copy(this._prev);
     } else {

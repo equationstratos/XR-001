@@ -61,6 +61,15 @@ export const S_DEP = sliderOffset(TH_DEP);
 export const STROKE = S_REST - S_DEP;
 
 /**
+ * Longueur courante du ressort de traction. Il est ancre en tete, au-dessus du
+ * coulisseau : bras replies le coulisseau est en bas et le ressort est donc a
+ * son maximum d'extension — arme par le repliage lui-meme.
+ */
+export function springLength(theta) {
+  return MECH.anchorY - D.hingeY - sliderOffset(theta);
+}
+
+/**
  * Pose d'une bielle. Les deux manetons sont dans le plan x = 0 du repere
  * de bras : une seule rotation autour de X suffit, pas de quaternion.
  * Renvoie l'origine (extremite cote poussoir) et l'angle a appliquer.

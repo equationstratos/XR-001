@@ -151,8 +151,6 @@ export function buildCollar(D) {
     }
     // butee d'ouverture usinee dans la chape (recoit la pastille elastomere)
     g.push(place(new THREE.BoxGeometry(K.cheekGap, 2.2 * mm, 3.4 * mm), { y: K.cheekR * 0.62, z: 1.6 * mm }));
-    // branche fixe du ressort de torsion, encastree dans la chape (radiale)
-    g.push(place(cyl(K.wire / 2, K.wire / 2, K.legLen, 6), { x: K.coilX, y: -K.legLen / 2 - 1.6 * mm }));
 
     const m = new THREE.Matrix4().makeRotationY(a)
       .multiply(new THREE.Matrix4().makeTranslation(0, D.hingeY, D.hingeR));
@@ -191,7 +189,7 @@ export function buildLink() {
  */
 export function buildShaft(D) {
   const K = MECH;
-  const yTop = D.hingeY, yBot = K.shaftBot;
+  const yTop = K.anchorY, yBot = K.shaftBot;
   const len = yTop - yBot;
   return mergeGeometries([
     place(cyl(K.rodR, K.rodR, len, 14), { y: (yTop + yBot) / 2 }),
@@ -228,14 +226,29 @@ export function buildRunner(D) {
 }
 
 /**
- * Ressort de torsion, monte en porte-a-faux sur l'axe d'articulation. C'est
- * lui le moteur : quatre exemplaires, en haut du drone. Sa spire tourne de la
- * moitie de l'angle du bras, consequence directe de l'encastrement de ses deux
- * branches (l'une sur le moyeu, l'autre sur le bras).
+ * Ressort de traction unique : helice d'axe Y de longueur unitaire, mise a
+ * l'echelle a sa longueur courante par la scene. Un ressort de traction qui
+ * s'etire, c'est exactement un pas qui augmente a diametre constant — la mise
+ * a l'echelle axiale en rend donc fidelement le comportement.
  */
-export function buildTorsionSpring() {
+export function buildDriveSpring() {
   const K = MECH;
-  return place(helix(K.coilR, K.wire, K.coilTurns, K.coilLen), { x: K.coilX });
+  return place(helix(K.springR, K.springWire, K.springTurns, 1, 4), { rz: Math.PI / 2 });
+}
+
+/** Boucles d'accrochage du ressort : ancrage haut et attache au coulisseau. */
+export function buildSpringHooks(D) {
+  const K = MECH;
+  const eye = (y) => mergeGeometries([
+    place(new THREE.TorusGeometry(1.6 * mm, K.springWire / 2, 6, 14), { y, rx: Math.PI / 2 }),
+    place(cyl(K.springWire / 2, K.springWire / 2, 2.6 * mm, 6), { y: y + (y > 0 ? -1.3 : 1.3) * mm }),
+  ], false);
+  // platine d'ancrage sous le sommet de la tete
+  const anchor = mergeGeometries([
+    place(cyl(6 * mm, 6 * mm, 1.6 * mm, 18), { y: K.anchorY + 1.4 * mm }),
+    eye(K.anchorY - 0.6 * mm),
+  ], false);
+  return anchor;
 }
 
 /** Cran de verrouillage du poussoir : doigt + ressort, sur le bati. */
@@ -333,10 +346,6 @@ export function buildArm(D) {
   // tringlerie, sinon la bielle ne se raccorderait pas.
   g.push(place(cyl(MECH.pinR * 0.95, MECH.pinR * 0.95, MECH.linkGap + 2 * MECH.linkT + 2.2 * mm, 10), {
     y: cv, z: cu, rz: Math.PI / 2,
-  }));
-  // branche mobile du ressort de torsion, encastree dans le pied de bras
-  g.push(place(cyl(MECH.wire / 2, MECH.wire / 2, MECH.legLen, 6), {
-    x: MECH.coilX, z: MECH.legLen / 2 + 1.6 * mm, rx: Math.PI / 2,
   }));
   return mergeGeometries(g, false);
 }

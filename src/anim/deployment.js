@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { D, SEQ, LAUNCH, MECH, PHASES } from '../config.js';
 import {
-  TH_REST, TH_DEP, sliderOffset, linkPose, transmission, S_REST,
+  TH_REST, TH_DEP, sliderOffset, springLength, linkPose, transmission, S_REST,
 } from '../model/linkage.js';
 
 const RAD = Math.PI / 180;
@@ -111,13 +111,12 @@ export class Deployment {
       // chaque image, jamais approche.
       arm.link.position.set(0, p.y, p.z);
       arm.link.rotation.x = p.angle;
-      // Le ressort de torsion est encastre d'un cote sur le moyeu, de l'autre
-      // sur le bras : sa spire tourne donc de la moitie de l'angle d'ouverture.
-      arm.coil.rotation.x = angle / 2;
     }
 
     const s = sliderOffset(angle);
     drone.slider.position.y = D.hingeY + s;
+    // Le ressort suit exactement l'ecart entre son ancrage et le coulisseau.
+    drone.spring.scale.y = springLength(angle);
 
     // le cran tombe derriere le coulisseau en haut de course : celui-ci ne
     // peut plus redescendre, donc aucun bras ne peut se replier.
@@ -175,9 +174,10 @@ export class Deployment {
     body.rotation.y = roll * L.spinAxial * Math.PI * 2;
 
     // --- 3. ouverture des bras (asservie au degagement) ---------------
-    // Chaque bras a son ressort de torsion, mais tous sont relies au MEME
-    // coulisseau : il n'y a donc qu'un seul angle, et aucun decalage entre
-    // bras n'est possible. C'est le role du coulisseau — synchroniser.
+    // Un seul ressort tire le coulisseau, et les quatre bras y sont relies :
+    // il n'y a donc qu'un seul angle, et aucun decalage entre bras n'est
+    // possible. Les bras s'ouvrent des que le degagement atteint 1 L, c'est-a-
+    // dire des que l'extremite du bras a franchi la bouche.
     const armT = overshoot(clamp01((clear - L.armFree) / L.armSpan));
     const angle = this.poseMechanism(armT);
     const tb = smooth(clamp01((clear - L.bladeStart) / L.bladeSpan));
