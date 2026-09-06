@@ -50,9 +50,14 @@ export const S_REST = sliderOffset(TH_REST);
 export const S_DEP = sliderOffset(TH_DEP);
 export const STROKE = S_REST - S_DEP;
 
-/** Longueur courante du ressort de compression (siege fixe -> etoile). */
+/**
+ * Longueur courante du ressort de compression. Le siege est FIXE en bas de
+ * l'epine, le coulisseau monte : le ressort se detend en ouvrant, il est donc
+ * au maximum de sa compression bras replies — la ou le bras de levier de la
+ * tringlerie est le plus faible.
+ */
 export function springLength(theta) {
-  return MECH.seatY - D.hingeY - sliderOffset(theta);
+  return D.hingeY + sliderOffset(theta) - MECH.seatY;
 }
 
 /**

@@ -103,31 +103,41 @@ export const Y = {
  *   - un seul ressort au lieu de quatre, loge dans l'epine (volume deja vide) ;
  *   - un seul verrou (cran sur le poussoir) au lieu de quatre doigts.
  *
+ * Montage PARAPLUIE, aux proportions du kit d'origine (bielle / pale = 0,50) :
+ * la bielle n'attaque pas une petite manivelle au pied du bras, elle relie le
+ * coulisseau central a un point situe LOIN sur le bras (30 mm sur 78, soit
+ * 0,38 de sa longueur), exactement comme une baleine de parapluie. Le
+ * coulisseau MONTE vers le plan d'articulation pour ouvrir.
+ *
  * Geometrie, dans le plan du bras (u = radial, v = axial, origine sur l'axe
  * d'articulation) :
  *
  *     maneton d'etoile      B = (rodPin - hingeR, s)     s = position poussoir
- *     maneton de manivelle  C = a·(cos ψ, -sin ψ)        ψ = θ + φ
+ *     point d'attache       C = a·(cos ψ, -sin ψ)        ψ = θ + φ  (φ = 0)
  *     contrainte de bielle  |C - B| = L
  *
- * Parametres issus d'un balayage sous contraintes d'implantation (le maneton
- * doit rester entre la tige centrale et les lisses, la course doit etre
- * monotone, l'angle de transmission eleve sur toute la course) :
+ * Parametres issus d'un balayage sous contraintes d'implantation (course
+ * monotone, pas de point mort, tout reste dans l'epine une fois replie) :
  *
- *     course du poussoir             7,06 mm
- *     angle de transmission          53° a 87° — aucun point mort
- *     rayon balaye par le maneton    3,8 a 6,5 mm — passe entre les lisses
+ *     course du coulisseau           55,6 mm  (y = -23,3 -> +32,3)
+ *     angle de transmission          14° a 89°
+ *     bielle / longueur de bras      0,49  (kit : 0,50)
+ *
+ * L'angle de transmission s'effondre aux deux extremites : c'est la signature
+ * du parapluie, dur a amorcer et dur a finir, maximal a mi-course. Le ressort
+ * de compression a exactement la caracteristique complementaire — il pousse
+ * fort quand il est comprime, c'est-a-dire au repliage, la ou le bras de
+ * levier est le plus faible.
  *
  * Dimensionnement (4 bras, I = 5,4e-5 kg·m² chacun, ouverture 90° en 80 ms) :
  *     energie a fournir     4 × ½·I·ω²        ≈ 165 mJ
- *     couple requis par bras  I·α             ≈ 26 mN·m
- *     couple rendu            F·a·sin μ       -> F ≈ 7 N par bielle
- *     ressort Ø fil 0,9 · Ø moyen 6 · 7 spires actives, libre 15 mm
- *       raideur  k = G·d⁴/(8·D³·n)            ≈ 4,3 N/mm
- *       effort bras replie (fleche 8,57)      ≈ 37 N
- *       precharge bras deploye (fleche 1,52)  ≈ 6,5 N — plaque sur la butee
- *       energie restituee ½k(8,57² - 1,52²)   ≈ 152 mJ
- *       longueur solide 7 × 0,9 = 6,3 mm < 6,4 mm comprime -> ne talonne pas
+ *     vitesse finale        ω = √(2E/4I)      ≈ 39 rad/s
+ *     ressort Ø fil 0,5 · Ø moyen 6 · 36 spires, libre 84 mm
+ *       raideur  k = G·d⁴/(8·D³·n)            ≈ 0,08 N/mm
+ *       effort replie   (fleche 63,3 mm)      ≈ 5,1 N
+ *       precharge deploye (fleche 7,7 mm)     ≈ 0,6 N
+ *       energie restituee ½k(63,3² - 7,7²)    ≈ 158 mJ
+ *       longueur solide 36 × 0,5 = 18 mm < 20,7 mm comprime -> ne talonne pas
  *     energie encaissee par butee de bras     ≈ 41 mJ -> pastille elastomere
  *
  * Pales : charnieres a vis epaulee Ø1,5 deportees de hubR de part et d'autre
@@ -150,40 +160,43 @@ export const MECH = {
   heelR: 4.4 * MM,        // moyeu tourillonnant du pied de bras
   bumperR: 1.6 * MM,      // pastille elastomere de butee
 
-  // --- tringlerie ---
-  crank: 4.7 * MM,        // manivelle portee par le pied de bras
-  crankPhi: 157.5,        // calage de la manivelle sur l'axe du bras (deg)
+  // --- tringlerie (proportions du kit : bielle / pale = 0,50) ---
+  crank: 30 * MM,         // point d'attache de la bielle SUR le bras
+  crankPhi: 0,            // ... dans l'axe du fuseau : montage parapluie
   rodPin: 3.0 * MM,       // rayon des manetons sur l'etoile du poussoir
-  link: 7.5 * MM,         // entraxe de bielle
-  linkT: 0.9 * MM,        // epaisseur d'un flasque de bielle jumelee
-  linkGap: 2.6 * MM,      // entraxe interieur des deux flasques
-  linkW: 2.4 * MM,        // largeur des flasques
+  link: 38 * MM,          // entraxe de bielle — 0,49 x la longueur de bras
+  linkT: 1.0 * MM,        // epaisseur d'un flasque de bielle jumelee
+  linkGap: 2.8 * MM,      // entraxe interieur des deux flasques
+  linkW: 2.8 * MM,        // largeur des flasques
 
   // --- poussoir ---
   rodR: 1.7 * MM,         // tige de commande Ø3,4
-  spiderT: 2.0 * MM,      // epaisseur de l'etoile d'entrainement
-  seatY: 48 * MM,         // siege fixe du ressort, sous la cloison haute
-  springR: 3.0 * MM,      // rayon moyen du ressort de compression
-  springWire: 0.9 * MM,
-  springTurns: 7,
+  rodLen: 92 * MM,
+  spiderT: 2.2 * MM,      // epaisseur de l'etoile d'entrainement
+  seatY: -44 * MM,        // siege fixe du ressort, en bas de l'epine
+  springR: 3.0 * MM,      // rayon moyen du ressort (Ø moyen 6)
+  springWire: 0.5 * MM,
+  springTurns: 36,
+  springFree: 84 * MM,    // longueur libre
   detentR: 0.9 * MM,      // cran de verrouillage du poussoir
   detentTravel: 1.5 * MM,
-  detentY: -12 * MM,      // implantation du cran sous le plan d'axe
+  detentY: 30 * MM,       // le cran bloque le poussoir en haut de course
 
   // --- pales ---
   screwR: 0.75 * MM,      // vis epaulee de charniere de pale
 };
 
 export const MECH_SPECS = [
-  ['Architecture', 'bielle-manivelle, 1 poussoir'],
-  ['Course du poussoir', '7,06 mm'],
-  ['Angle de transmission', '53° à 87° — sans point mort'],
-  ['Ressort de commande', 'Ø fil 0,9 · Ø 6 · 7 sp. · 4,3 N/mm'],
-  ['Effort replié → déployé', '37 N → 6,5 N de précharge'],
-  ['Énergie restituée', '152 mJ · ouverture en ≈ 80 ms'],
-  ['Couple rendu par bras', '≈ 26 mN·m'],
+  ['Architecture', 'parapluie — 1 coulisseau, 4 bielles'],
+  ['Bielle / longueur de bras', '0,49 (kit d\'origine : 0,50)'],
+  ['Point d\'attache sur le bras', '30 mm de l\'axe'],
+  ['Course du coulisseau', '55,6 mm'],
+  ['Angle de transmission', '14° à 89° — max à mi-course'],
+  ['Ressort de commande', 'Ø fil 0,5 · Ø 6 · 36 sp. · 0,08 N/mm'],
+  ['Effort replié → déployé', '5,1 N → 0,6 N de précharge'],
+  ['Énergie restituée', '158 mJ · ouverture en ≈ 80 ms'],
   ['Synchronisation', 'mécanique — 4 bras liés'],
-  ['Verrouillage', 'cran sur poussoir, irréversible'],
+  ['Verrouillage', 'cran sur coulisseau, irréversible'],
   ['Charnière de pale', 'vis épaulée Ø 1,5 · centrifuge'],
 ];
 

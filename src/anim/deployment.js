@@ -44,6 +44,9 @@ export class Deployment {
     this._spinAngle = 0;
     this._bob = 0;
     this.clear = 0;
+    this.cycle = false;
+    this.cycleDuration = 5;   // secondes par aller simple
+    this._cycleT = 0;
     this.apply(0, 0);
   }
 
@@ -55,8 +58,25 @@ export class Deployment {
   pause() { this.playing = false; }
   toggle() { this.playing ? this.pause() : this.play(); }
 
+  /**
+   * Cycle mecanisme : ouvre et referme les bras en boucle, projectile deja
+   * sorti du tube, pour observer le train de commande a loisir. Le degagement
+   * de bouche est court-circuite — c'est un banc d'essai, pas un tir.
+   */
+  setCycle(on) {
+    this.cycle = on;
+    if (on) { this.playing = false; this._cycleT = 0; }
+    else this.apply(this.t, 0);
+  }
+
   /** @returns {boolean} true si l'etat a change (declenche un rendu). */
   update(dt) {
+    if (this.cycle) {
+      this._cycleT += dt / this.cycleDuration;
+      const u = this._cycleT % 2;
+      this.applyCycle(smooth(u < 1 ? u : 2 - u), dt);
+      return true;
+    }
     let changed = false;
     if (this.playing) {
       this.t += dt / this.duration;
@@ -70,6 +90,58 @@ export class Deployment {
     const spinning = this.spin && this.t > SEQ.spin[0];
     if (spinning || changed) { this.apply(this.t, dt); changed = true; }
     return changed;
+  }
+
+  /**
+   * Pose l'ensemble du train de commande a partir d'un seul parametre
+   * d'ouverture. Partage par la sequence de tir et par le cycle mecanisme :
+   * il n'existe qu'une seule description du mecanisme dans le code.
+   * @returns {number} l'angle de bras correspondant (radians)
+   */
+  poseMechanism(armT) {
+    const { drone } = this;
+    const angle = THREE.MathUtils.lerp(FOLDED, TH_DEP, armT);
+    const p = linkPose(angle);
+
+    for (const arm of drone.arms) {
+      arm.hinge.rotation.x = angle;
+      arm.ta = armT;
+      // Bielle : origine sur le maneton d'etoile, orientation donnee par la
+      // resolution en forme fermee. Son entraxe est donc exactement nominal a
+      // chaque image, jamais approche.
+      arm.link.position.set(0, p.y, p.z);
+      arm.link.rotation.x = p.angle;
+    }
+
+    const s = sliderOffset(angle);
+    drone.slider.position.y = D.hingeY + s;
+    drone.spring.scale.y = springLength(angle);
+
+    // le cran tombe derriere le coulisseau en haut de course : celui-ci ne
+    // peut plus redescendre, donc aucun bras ne peut se replier.
+    const push = smooth(clamp01((armT - 0.80) / 0.14)) * (1 - smooth(clamp01((armT - 0.95) / 0.05)));
+    drone.detentFinger.position.x = MECH.rodR + 2.4 * 0.001 + push * MECH.detentTravel;
+
+    this.stroke = s - S_REST;
+    this.locked = armT >= 0.99;
+    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(angle));
+    this.transmission = Math.round(transmission(angle));
+    return angle;
+  }
+
+  /** Banc d'essai : projectile deja sorti, on ne joue que le mecanisme. */
+  applyCycle(armT, dt) {
+    const { drone } = this;
+    drone.root.position.y = LAUNCH.rise;
+    drone.root.rotation.set(0, 0, 0);
+    drone.tube.visible = false;
+    this.poseMechanism(armT);
+    for (const arm of drone.arms) {
+      for (const b of arm.blades) b.rotation.y = Math.PI / 2;   // pales repliees
+    }
+    this.clear = 99;
+    this.rpm = 0;
+    if (dt > 0) this._bob += dt;
   }
 
   apply(t, dt = 0) {
@@ -105,39 +177,17 @@ export class Deployment {
     // qu'un seul angle, et aucun decalage entre paires n'est possible. C'est
     // la propriete recherchee en adoptant la tringlerie.
     const armT = overshoot(clamp01((clear - L.armFree) / L.armSpan));
-    const angle = THREE.MathUtils.lerp(FOLDED, TH_DEP, armT);
+    const angle = this.poseMechanism(armT);
     const tb = smooth(clamp01((clear - L.bladeStart) / L.bladeSpan));
 
+    // --- 4. depliage des pales ---
+    // ouverture en ciseaux : charnieres deportees de part et d'autre du
+    // moyeu, les deux pales tournent en sens opposes.
     for (const arm of drone.arms) {
-      arm.hinge.rotation.x = angle;
-      arm.ta = armT;
-
-      // Pose de la bielle : origine sur le maneton d'etoile, orientation
-      // donnee par la resolution en forme fermee. Sa longueur est donc
-      // exactement nominale a chaque image, jamais approchee.
-      const p = linkPose(angle);
-      arm.link.position.set(0, p.y, p.z);
-      arm.link.rotation.x = p.angle;
-
-      // --- 4. depliage des pales ---
-      // ouverture en ciseaux : charnieres deportees de part et d'autre du
-      // moyeu, les deux pales tournent en sens opposes.
       for (let j = 0; j < arm.blades.length; j++) {
         arm.blades[j].rotation.y = Math.PI / 2 + (j === 0 ? -1 : 1) * (Math.PI / 2) * tb;
       }
     }
-
-    // --- poussoir, ressort de commande et verrou ----------------------
-    const s = sliderOffset(angle);
-    drone.slider.position.y = D.hingeY + s;
-    drone.spring.scale.y = springLength(angle);
-
-    // le cran tombe dans la gorge du poussoir en fin de course : le poussoir
-    // ne peut plus remonter, donc aucun bras ne peut se replier.
-    const push = smooth(clamp01((armT - 0.80) / 0.14)) * (1 - smooth(clamp01((armT - 0.95) / 0.05)));
-    drone.detentFinger.position.x = MECH.rodR + 2.4 * 0.001 + push * MECH.detentTravel;
-    this.stroke = S_REST - s;
-    this.locked = armT >= 0.99;
 
     // --- 5. montee en regime ------------------------------------------
     const rpmFrac = smooth(span(t, SEQ.spin));
@@ -158,8 +208,6 @@ export class Deployment {
     body.rotation.x = Math.cos(this._bob * 1.3) * 0.018 * hover;
 
     this.rpm = Math.round(rpmFrac * D.rpm);
-    this.armAngle = Math.round(90 - THREE.MathUtils.radToDeg(angle));
-    this.transmission = Math.round(transmission(angle));
   }
 
   get phaseName() {

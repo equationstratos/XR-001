@@ -21,7 +21,7 @@ const panel = initPanel({ viewer, drone, deploy, labels, mech });
 
 viewer.updaters.push((dt) => {
   if (deploy.update(dt)) viewer.dirty = true;
-  viewer.animating = deploy.playing;
+  viewer.animating = deploy.playing || deploy.cycle;
   mech.update();
   const w = viewer.canvas.clientWidth, h = viewer.canvas.clientHeight;
   labels.update(w, h);

@@ -26,7 +26,7 @@ export function initPanel({ viewer, drone, deploy, labels, mech }) {
   const syncPhase = () => {
     phase.value = deploy.t;
     out.phase.textContent = `${Math.round(deploy.t * 100)} %`;
-    out.name.textContent = deploy.phaseName;
+    out.name.textContent = deploy.cycle ? 'Cycle mécanisme — banc d\'essai' : deploy.phaseName;
     out.clear.textContent = `${deploy.clear.toFixed(2).replace('.', ',')} L`;
     out.clear.style.color = deploy.clear >= 1 ? 'var(--acc)' : 'var(--acc2)';
     out.arm.textContent = `${deploy.armAngle}°`;
@@ -76,6 +76,17 @@ export function initPanel({ viewer, drone, deploy, labels, mech }) {
     mech.setEnabled(!mech.on, labelsWanted);
     mechBtn.classList.toggle('on', mech.on);
     mechBtn.textContent = mech.on ? 'Vue d\'ensemble' : 'Vue mécanisme';
+  });
+
+  // Cycle mecanisme : ouverture / fermeture en boucle, projectile deja sorti,
+  // pour observer le train de commande sans rejouer le tir a chaque fois.
+  const cycleBtn = $('#cycle');
+  cycleBtn.addEventListener('click', () => {
+    deploy.setCycle(!deploy.cycle);
+    cycleBtn.classList.toggle('on', deploy.cycle);
+    drone.setLauncher(deploy.cycle ? false : $('#opt-tube').checked);
+    phase.disabled = deploy.cycle;
+    syncPhase(); dirty();
   });
 
   const bind = (id, fn) => $(id).addEventListener('change', (e) => { fn(e.target.checked); dirty(); });

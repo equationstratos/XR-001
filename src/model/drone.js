@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { D, Y, MECH, EXPLODE } from '../config.js';
 import {
-  buildChassis, buildBay, buildShroud, buildCollar, buildLink, buildSlider,
+  buildChassis, buildBay, buildShroud, buildCollar, buildLink, buildShaft, buildRunner,
   buildDriveSpring, buildDetent, buildHead, buildNose, buildArm, buildMotor,
   buildBlade, buildHub, buildInternals, buildTube,
 } from './parts.js';
@@ -157,26 +157,31 @@ export class Drone {
       });
     }
 
-    // --- poussoir central, commun aux quatre bras --------------------
-    // C'est lui qui rend les bras solidaires : une seule position axiale
-    // definit les quatre angles d'ouverture.
+    // --- train de commande, commun aux quatre bras --------------------
+    // Montage parapluie : le mat est FIXE, le coulisseau glisse dessus. C'est
+    // lui qui rend les bras solidaires — une seule position axiale definit les
+    // quatre angles d'ouverture.
+    this.shaft = this._mesh(buildShaft(D), M.aluDark, this.root, false);
+    this.shaft.name = 'shaft';
+
     this.slider = new THREE.Group();
     this.root.add(this.slider);
-    this._mesh(buildSlider(D), M.alu, this.slider, false);
+    this._mesh(buildRunner(D), M.alu, this.slider, false);
 
-    // ressort de compression : siege fixe sous la cloison haute, il pousse
-    // l'etoile vers la queue. Mis a l'echelle en Y a sa longueur courante.
+    // ressort de compression : siege fixe en bas de l'epine, il pousse le
+    // coulisseau vers le haut. Mis a l'echelle en Y a sa longueur courante —
+    // un ressort qui se detend, c'est un pas qui augmente a diametre constant.
     this.spring = new THREE.Group();
     this.spring.position.y = MECH.seatY;
     this.root.add(this.spring);
     const sp = this._mesh(buildDriveSpring(), M.spring, this.spring, false);
-    sp.position.y = -0.5;                      // helice unitaire ancree au siege
+    sp.position.y = 0.5;                       // helice unitaire ancree au siege
 
-    // verrou : cran a ressort qui tombe dans la gorge du poussoir en fin de course
+    // verrou : cran a ressort qui tombe derriere le coulisseau en haut de course
     const det = buildDetent();
     this.geometries.push(det.finger, det.spring, det.guide);
     this.detent = new THREE.Group();
-    this.detent.position.set(0, D.hingeY + MECH.detentY, 0);
+    this.detent.position.set(0, MECH.detentY, 0);
     this.root.add(this.detent);
     this._mesh(det.guide, M.aluDark, this.detent, false);
     this.detentFinger = new THREE.Group();
@@ -196,11 +201,12 @@ export class Drone {
     this.mechLabels = [
       { text: 'Moyeu cruciforme + axe Ø1,5', obj: a0.yaw, pos: new THREE.Vector3(-0.013, -0.001, D.hingeR - 0.003) },
       { text: 'Butée + pastille élastomère', obj: a0.yaw, pos: new THREE.Vector3(0, 0.012, D.hingeR + 0.002) },
-      { text: 'Manivelle du pied de bras', obj: a0.hinge, pos: new THREE.Vector3(0, -0.014, -0.007) },
-      { text: 'Bielle jumelée · entraxe 7,5', obj: a0.yaw, pos: new THREE.Vector3(0, -0.002, 0.008) },
-      { text: 'Ressort de commande · 37 N', obj: this.spring, pos: new THREE.Vector3(0, -0.005, 0.007) },
-      { text: 'Étoile d\'entraînement', obj: this.slider, pos: new THREE.Vector3(0, 0.001, -0.009) },
-      { text: 'Verrou de poussoir', obj: this.detent, pos: new THREE.Vector3(0.010, -0.004, 0) },
+      { text: 'Attache de bielle · 30 mm de l\'axe', obj: a0.hinge, pos: new THREE.Vector3(0, 0.006, MECH.crank) },
+      { text: 'Bielle · entraxe 38 mm', obj: a0.link, pos: new THREE.Vector3(0, -0.005, MECH.link / 2) },
+      { text: 'Ressort de commande · 5,1 N', obj: this.spring, pos: new THREE.Vector3(0, 0.4, 0.006) },
+      { text: 'Coulisseau + étoile', obj: this.slider, pos: new THREE.Vector3(0, 0.002, -0.008) },
+      { text: 'Mât fixe', obj: this.root, pos: new THREE.Vector3(0.006, 0.010, 0) },
+      { text: 'Verrou de coulisseau', obj: this.detent, pos: new THREE.Vector3(0.011, 0, 0) },
       { text: 'Charnière de pale · vis épaulée Ø1,5', obj: a0.hub, pos: new THREE.Vector3(0, 0.008, -0.004) },
     ];
   }

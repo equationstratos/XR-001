@@ -28,7 +28,7 @@ npm run preview      # sert dist/ sur le port 4173
 ## Mise en ligne
 
 **`index.html`, à la racine, est une page autonome générée** : un fichier
-unique de 544 ko contenant le HTML, le CSS et tout le JavaScript en ligne,
+unique de 548 ko contenant le HTML, le CSS et tout le JavaScript en ligne,
 three.js compris. Aucune dépendance, aucun serveur, aucun build côté
 hébergeur. Quelle que soit la façon dont vous publiez, ça fonctionne :
 
@@ -58,19 +58,6 @@ manquant d'une ressource secondaire absente, laisse un diagnostic précis
 remplacer un diagnostic générique, et se déclenche au bout de 9 s si rien
 n'est remonté.
 
----|---|
-| **Page autonome** (la plus simple) | `docs/index.html` est un fichier unique de 542 ko contenant tout, three.js compris. Ouvrez-le en double-clic, déposez-le sur n'importe quel hébergeur, envoyez-le par mail. Aucune dépendance, aucun serveur. |
-| **GitHub Pages depuis `/docs`** | Settings → Pages → Source : *Deploy from a branch*, dossier `/docs`. Rien d'autre à faire, `docs/` est versionné. |
-| **GitHub Pages via Actions** | Settings → Pages → Source : *GitHub Actions*. Le workflow `.github/workflows/pages.yml` construit et publie `dist/` à chaque push. |
-
-Après toute modification du code, régénérez la page autonome avec
-`npm run build:single` (ou `npm run build:all` pour les deux sorties).
-
-Si quelque chose échoue malgré tout, la page ne reste plus bloquée sur le rond
-de chargement : un garde-fou (script classique, indépendant du module) affiche
-l'erreur, sa cause probable et la marche à suivre — import non résolu, fichier
-404, WebGL indisponible, ou absence de démarrage au bout de 9 s.
-
 ---
 
 ## Ce que fait l'application
@@ -83,7 +70,8 @@ l'erreur, sa cause probable et la marche à suivre — import non résolu, fichi
 | Repères cotés | 6 étiquettes 2D ancrées aux pièces, elles suivent l'éclatement et l'animation |
 | Options | Internes, tube lanceur, filaire, rotation des rotors, rotation automatique |
 | Export | Capture PNG à la résolution de l'écran |
-| Vue mécanisme | Isole une articulation, suit la pièce pendant le tir, repères dédiés, état du verrou en direct |
+| Vue mécanisme | Isole le train de commande, suit la pièce pendant le tir, repères dédiés, état du verrou en direct |
+| Cycle mécanisme | Ouverture / fermeture en boucle, projectile déjà sorti — banc d'essai du mécanisme |
 | Raccourcis | `Espace` lecture/pause · `E` vue éclatée · `M` vue mécanisme · `R` recadrage caméra |
 
 ---
@@ -148,9 +136,9 @@ clear = ( y_axe_articulation − y_bouche ) / longueur_de_bras
 La géométrie impose une ouverture **claquante**, pas progressive :
 
 * Un point du bras situé à la distance `s` de l'axe passe au rayon
-  `r = r_axe + s·sin θ`. Tant qu'il est dans le tube, il faut `r ≤ 16 mm`,
-  d'où `θ ≤ asin((16 − 8,5) / 78) ≈ **5,5°**`. Un bras encore engagé est donc
-  mécaniquement bloqué contre le fût.
+  `r = r_axe + s·sin θ + r_bras`. Tant qu'il est dans le tube, il faut
+  `r ≤ 16 mm`, d'où `θ ≤ asin((16 − 8,5 − 3) / 78) ≈ **3,3°**`. Un bras encore
+  engagé est donc mécaniquement bloqué contre le fût.
 * Le bras ne peut atteindre un angle utile qu'une fois **intégralement sorti**,
   c'est-à-dire `clear ≥ 1`. Le ressort le déploie alors d'un coup, avec un
   léger dépassement avant verrouillage en butée.
@@ -163,8 +151,8 @@ ne change rien à ce couplage.
 | Phase | Déclencheur | Effet |
 |---|---|---|
 | Tir | `t` 0 → 0,62 | Vitesse quasi constante (sur 20 cm la décélération gravitaire est négligeable), roulis de stabilisation acquis dans le tube puis amorti |
-| Libération des bras | `clear` ≥ 1,00 | Butée mécanique à 5,5° tant que `clear < 1` |
-| Ouverture des bras | `clear` 1,00 → 1,72 | 4 × 90° avec dépassement de ressort ; paires opposées décalées de 0,07 L |
+| Libération des bras | `clear` ≥ 1,00 | Butée mécanique à 3,3° tant que `clear < 1` |
+| Ouverture des bras | `clear` 1,00 → 1,72 | 4 × 90° simultanés — la tringlerie interdit tout décalage entre bras |
 | Dépliage des pales | `clear` 1,80 → 2,45 | 8 pales, 90° chacune |
 | Montée en régime | `t` 0,58 → 0,90 | Rampe de régime puis flottement de tenue de vol |
 
@@ -180,9 +168,16 @@ Le bouton **Vue mécanisme** (ou `M`) isole le train de commande — les autres
 bras, le carénage, les cloisons, l'épine et les modules sont effacés, les joues
 de chape passent en fantôme — et la caméra suit la pièce pendant tout le tir.
 
-L'architecture est une **bielle-manivelle synchronisée**, transposée du
-mécanisme d'empennage retardateur type *Snakeye* : un seul poussoir axial
-attaque les quatre bras par quatre biellettes.
+L'architecture est un **montage parapluie**, aux proportions du kit d'origine :
+la biellette y mesure 50 mm pour une pale de 100, soit la moitié. Elle n'attaque
+donc pas une petite manivelle au pied du bras — elle relie le coulisseau
+central à un point situé **loin sur le bras**, exactement comme une baleine de
+parapluie. Et comme dans un parapluie, **le mât est fixe et c'est le coulisseau
+qui glisse dessus**.
+
+Le bouton **⟲ Cycle** ouvre et referme les bras en boucle, projectile déjà
+sorti du tube : c'est un banc d'essai qui laisse observer le train de commande
+sans rejouer le tir à chaque fois.
 
 ### Chaîne de commande
 
@@ -190,12 +185,13 @@ attaque les quatre bras par quatre biellettes.
 |---|---|
 | Moyeu cruciforme | 7075, quatre chapes à deux joues Ø 10 × 1,4, ceinturant l'épine, centre ouvert |
 | Axes | Ø 1,5 inox, un par bras, retenus par circlips |
-| Manivelle | 4,7 mm venue de matière sur le pied de bras, calée à 157,5° de l'axe du fuseau |
-| Biellette jumelée | deux flasques 0,9 mm, entraxe 7,5 mm, tourillons aux deux bouts (× 4) |
-| Poussoir | tige Ø 3,4 sur l'axe du drone, étoile à quatre manetons à r = 3 mm |
-| Ressort de commande | compression Ø fil 0,9 · Ø moyen 6 · 7 spires, libre 15 mm |
+| Mât | fixe, Ø 3,4, encastré dans le moyeu, en appui sur la cloison basse |
+| Attache de bielle | collier serré sur le fuseau, **30 mm** de l'axe d'articulation |
+| Biellette jumelée | deux flasques 1,0 mm, entraxe **38 mm** — 0,49 × la longueur de bras (× 4) |
+| Coulisseau | bague glissant sur le mât, étoile à quatre manetons à r = 3 mm |
+| Ressort de commande | compression Ø fil 0,5 · Ø moyen 6 · 36 spires, libre 84 mm |
 | Butée | épaulement usiné dans la chape + pastille élastomère |
-| Verrou | cran à ressort tombant dans la gorge du poussoir |
+| Verrou | cran à ressort tombant derrière le coulisseau en haut de course |
 
 Trois conséquences qui justifient le changement d'architecture :
 
@@ -222,32 +218,40 @@ B = (rodPin − hingeR, s)       maneton d'étoile
 s = −a·sin ψ − √(L² − (a·cos ψ − bu)²)
 ```
 
-Le panneau affiche en direct la course du poussoir et l'angle de transmission.
-Valeurs mesurées sur l'application, conformes au dimensionnement :
+Le panneau affiche en direct la course du coulisseau et l'angle de
+transmission. Valeurs mesurées sur l'application, conformes au calcul :
 
-| Ouverture | Course | Transmission |
+| Ouverture | Course du coulisseau | Transmission |
 |---|---|---|
-| 3° (replié, en butée sur le carénage) | 0,00 mm | 53° |
-| 59° | 4,37 mm | 88° |
-| 94° (verrouillé) | **7,06 mm** | 54° |
+| 3° (replié, en butée sur le carénage) | 0,0 mm | 14° |
+| 37° | 13,2 mm | 75° |
+| 47° (mi-course) | 20,2 mm | **88°** |
+| 94° (verrouillé) | **55,6 mm** | 17° |
 
-Aucun point mort sur toute la course — le mécanisme ne peut pas se coincer en
-position intermédiaire.
+Le bras de levier s'effondre aux deux extrémités et culmine à mi-course : c'est
+la signature du parapluie — dur à amorcer, dur à finir. Le ressort de
+compression a exactement la caractéristique complémentaire : il pousse le plus
+fort quand il est le plus comprimé, c'est-à-dire bras repliés, là où le levier
+est le plus faible.
 
 ### Dimensionnement — les chiffres sont vérifiables
 
 ```
 inertie d'un bras autour de l'axe   I = m_mot·L² + m_bras·L²/3 ≈ 5,4e-5 kg·m²
-ouverture 90° en 80 ms              α = 2θ/t²                  ≈ 490 rad/s²
-couple requis par bras              C = I·α                    ≈ 26 mN·m
 énergie à fournir (4 bras)          4 × ½·I·ω²                 ≈ 165 mJ
-raideur du ressort                  k = G·d⁴/(8·D³·n)          ≈ 4,3 N/mm
-effort bras replié (flèche 8,57)    F = k·x                    ≈ 37 N
-précharge bras déployé (flèche 1,52)                           ≈ 6,5 N
-énergie restituée                   ½k(8,57² − 1,52²)          ≈ 152 mJ
-longueur solide 7 × 0,9 = 6,3 mm < 6,4 mm comprimé  → ne talonne pas
+vitesse finale                      ω = √(2E/4I)               ≈ 39 rad/s
+ouverture correspondante            t = 2θ/ω                   ≈ 81 ms
+raideur du ressort                  k = G·d⁴/(8·D³·n)          ≈ 0,08 N/mm
+effort bras replié (flèche 63,3)    F = k·x                    ≈ 5,1 N
+précharge bras déployé (flèche 7,7)                            ≈ 0,6 N
+énergie restituée                   ½k(63,3² − 7,7²)           ≈ 158 mJ
+longueur solide 36 × 0,5 = 18 mm < 20,7 mm comprimé  → ne talonne pas
 énergie encaissée par butée         E = ½·I·ω²                 ≈ 41 mJ → élastomère
 ```
+
+Le ressort est volontairement souple : sur 55,6 mm de course, une raideur
+ordinaire délivrerait plusieurs fois l'énergie nécessaire et les bras
+arriveraient en butée à une vitesse inutilement élevée.
 
 Le bras replié n'est pas à 90° : le ressort le pousse en permanence contre la
 face interne du carénage, donc il repose **ouvert de 3,3°** —

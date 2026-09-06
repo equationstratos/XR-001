@@ -182,28 +182,45 @@ export function buildLink() {
 }
 
 /**
- * Poussoir : tige de commande axiale, etoile d'entrainement a quatre manetons
- * et gorge de verrouillage. Construit dans le repere du drone, origine au
- * niveau du plan d'axe des articulations (y = hingeY) ; l'objet est ensuite
+ * Mat central FIXE, comme le manche d'un parapluie : il est encastre dans le
+ * moyeu en haut, prend appui sur la cloison basse en bas, guide le coulisseau
+ * et porte le siege du ressort. C'est le coulisseau qui glisse dessus, pas
+ * l'inverse.
+ */
+export function buildShaft(D) {
+  const K = MECH;
+  const yTop = D.hingeY, yBot = K.seatY - 2 * mm;
+  const len = yTop - yBot;
+  return mergeGeometries([
+    place(cyl(K.rodR, K.rodR, len, 14), { y: (yTop + yBot) / 2 }),
+    // siege fixe du ressort
+    place(cyl(K.springR + 1.2 * mm, K.springR + 1.2 * mm, 2 * mm, 18), { y: K.seatY }),
+    // embase sur la cloison basse
+    place(cyl(K.rodR * 2.2, K.rodR * 2.2, 2 * mm, 14), { y: yBot }),
+  ], false);
+}
+
+/**
+ * Coulisseau : la bague qui coulisse sur le mat, son etoile a quatre manetons
+ * et sa gorge de verrouillage. Origine sur le plan de l'etoile ; l'objet est
  * translate de la course courante.
  */
-export function buildSlider(D) {
+export function buildRunner(D) {
   const K = MECH;
   const g = [];
-  const rodLen = 34 * mm;
-  g.push(place(cyl(K.rodR, K.rodR, rodLen, 14), { y: -rodLen / 2 + K.spiderT }));
-  g.push(place(cyl(K.rodR * 1.5, K.rodR * 1.5, 1.6 * mm, 14), { y: K.spiderT + 0.8 * mm })); // siege de ressort
-  // gorge de verrouillage : deux epaulements encadrant le cran
-  for (const s of [1, -1]) {
-    g.push(place(cyl(K.rodR * 1.45, K.rodR * 1.45, 1 * mm, 14), { y: K.detentY + s * 1.6 * mm }));
-  }
+  const sleeve = 8 * mm;
+  g.push(place(cyl(K.rodR + 1.0 * mm, K.rodR + 1.0 * mm, sleeve, 16), {}));
+  // collerette d'appui du ressort (sous le coulisseau)
+  g.push(place(cyl(K.springR + 0.9 * mm, K.springR + 0.9 * mm, 1.4 * mm, 18), { y: -sleeve / 2 }));
+  // gorge de verrouillage en haut de la bague
+  g.push(place(cyl(K.rodR + 1.6 * mm, K.rodR + 1.6 * mm, 1 * mm, 16), { y: sleeve / 2 - 0.5 * mm }));
   // etoile : quatre bras portant les manetons de bielle
   for (let i = 0; i < D.armCount; i++) {
     const a = (D.armSweep + i * (360 / D.armCount)) * RAD;
-    g.push(place(new THREE.BoxGeometry(K.linkW * 1.3, K.spiderT, K.rodPin + 1.6 * mm), {
+    g.push(place(new THREE.BoxGeometry(K.linkW * 1.4, K.spiderT, K.rodPin + 2.2 * mm), {
       x: Math.sin(a) * (K.rodPin / 2), z: Math.cos(a) * (K.rodPin / 2), ry: a,
     }));
-    g.push(place(cyl(K.pinR * 0.9, K.pinR * 0.9, K.linkGap + 2 * K.linkT + 0.8 * mm, 10), {
+    g.push(place(cyl(K.pinR * 0.95, K.pinR * 0.95, K.linkGap + 2 * K.linkT + 1.0 * mm, 10), {
       x: Math.sin(a) * K.rodPin, z: Math.cos(a) * K.rodPin, ry: a, rz: Math.PI / 2,
     }));
   }
@@ -299,21 +316,19 @@ export function buildArm(D) {
     y: MECH.heelR * 0.72, z: 1.5 * mm,
   }));
 
-  // MANIVELLE : bras de levier venu de matiere sur le pied, cale a crankPhi
-  // de l'axe du fuseau. C'est lui que la bielle attaque ; sa longueur (4,7 mm)
-  // et son calage (157,5°) fixent toute la loi d'ouverture.
+  // FERRURE D'ATTACHE de la bielle, a 30 mm de l'axe SUR le bras (montage
+  // parapluie : la bielle attaque loin sur le fuseau, pas une manivelle de
+  // pied). C'est ce bras de levier qui fixe toute la loi d'ouverture.
   const phi = MECH.crankPhi * RAD;
   const cu = MECH.crank * Math.cos(phi);      // composante radiale (+Z local)
   const cv = -MECH.crank * Math.sin(phi);     // composante axiale  (+Y local)
-  const cl = Math.hypot(cu, cv);
-  g.push(place(new THREE.BoxGeometry(MECH.cheekGap - 0.6 * mm, MECH.linkW * 1.35, cl), {
-    y: cv / 2, z: cu / 2, rx: Math.atan2(-cv, cu) - Math.PI / 2,
+  // collier serre sur le fuseau, traverse par le tourillon
+  g.push(place(new THREE.BoxGeometry(MECH.linkGap + 2 * MECH.linkT + 1.6 * mm, D.armR * 2.4, 4.2 * mm), {
+    y: cv, z: cu,
   }));
-  // maneton de manivelle (tourillon recevant la bielle)
-  g.push(place(cyl(MECH.pinR * 0.9, MECH.pinR * 0.9, MECH.linkGap + 2 * MECH.linkT + 0.8 * mm, 10), {
-    y: cv, z: cu, rz: Math.PI / 2,
-  }));
-  g.push(place(cyl(MECH.linkW * 0.7, MECH.linkW * 0.7, MECH.cheekGap - 0.6 * mm, 14), {
+  // tourillon : il est exactement au point d'attache calcule par la
+  // tringlerie, sinon la bielle ne se raccorderait pas.
+  g.push(place(cyl(MECH.pinR * 0.95, MECH.pinR * 0.95, MECH.linkGap + 2 * MECH.linkT + 2.2 * mm, 10), {
     y: cv, z: cu, rz: Math.PI / 2,
   }));
   return mergeGeometries(g, false);
